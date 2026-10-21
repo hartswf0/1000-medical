@@ -1,0 +1,560 @@
+<title>Threshold Workbench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Chivo+Mono:wght@400;500&family=Familjen+Grotesk:wght@400;500;600&display=swap">
+<style>
+/* Layout: blueprint instrument — a header bar, study tabs, then each study as plan view + ledger/inspector columns.
+   Deliberately single dark theme (blueprint), matching the reference boards. */
+:root{
+  --ground:#0b1622; --panel:#0f1e2c; --panel-2:#132638; --line:#21384d; --grid:#162b3e;
+  --ink:#d9e6ef; --muted:#7f97aa; --faint:#4f6779;
+  --cyan:#4fd8e8; --amber:#f4b740; --coral:#f26a5e; --violet:#a99cf0; --green:#6fd6a0;
+  --display:"Chakra Petch", "Rajdhani", system-ui, sans-serif;
+  --body:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono:"Chivo Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 40px}
+button{font:inherit;color:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.brand{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.14em;text-transform:uppercase;margin:0}
+.crumbs{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.05em}
+.crumbs b{color:var(--ink);font-weight:500}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.tab{background:transparent;border:1px solid var(--line);border-radius:4px;padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--muted)}
+.tab[aria-selected="true"]{border-color:var(--cyan);color:var(--cyan);background:color-mix(in srgb,var(--cyan) 8%,transparent)}
+.lede{max-width:78ch;color:var(--muted);margin:14px 0 16px;font-size:14px}
+.lede strong{color:var(--ink);font-weight:600}
+.btn{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#1a1405;font-weight:500}
+.btn:disabled{opacity:.4;cursor:default}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin:0 0 8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;min-width:0}
+.grid{display:grid;gap:14px}
+.studyA{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.studyB{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 250px}
+.studyC{grid-template-columns:240px minmax(0,1.3fr) minmax(0,1fr)}
+@media (max-width:1100px){.studyB{grid-template-columns:1fr 1fr}.studyB .inspector{grid-column:1/-1}.studyC{grid-template-columns:1fr 1fr}.studyC .cmid{grid-column:1/-1;order:-1}}
+@media (max-width:760px){.studyA,.studyB,.studyC{grid-template-columns:1fr}}
+svg{display:block;width:100%;height:auto}
+.plan text{font-family:var(--mono)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mono{font-family:var(--mono)}
+.small{font-size:12px;color:var(--muted)}
+/* beats */
+.beats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:12px}
+.beat{border:1px solid var(--line);border-radius:4px;padding:7px 8px;background:transparent;text-align:left;cursor:pointer;min-width:0}
+.beat .n{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.beat .t{font-size:12.5px;font-weight:500;display:block;overflow-wrap:anywhere}
+.beat[aria-current="step"]{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 8%,transparent)}
+.beat.turn .n{color:var(--coral)} .beat.rev .n{color:var(--green)}
+@media (max-width:520px){.beats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.utter{margin-top:12px;border-left:2px solid var(--amber);padding:6px 0 6px 12px}
+.utter .who{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.utter q{display:block;font-size:17px;quotes:"“" "”";margin-top:2px;text-wrap:balance}
+/* triad */
+.triad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.triad{grid-template-columns:1fr}}
+.cell{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0}
+.cell h4{margin:0 0 4px;font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cell p{margin:0;font-size:13px}
+.op{display:inline-block;font-family:var(--mono);font-size:11.5px;padding:2px 7px;border-radius:3px;border:1px solid currentColor}
+.op.none{color:var(--muted)} .op.pill{color:var(--coral)} .op.smoke{color:var(--amber)} .op.turn{color:var(--coral);background:color-mix(in srgb,var(--coral) 14%,transparent)} .op.rev{color:var(--green)} .op.int{color:var(--violet)}
+/* option ledger */
+.ledger{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.opt{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2)}
+.opt .dot{width:10px;height:10px;border-radius:50%;background:var(--cyan)}
+.opt .name{font-size:13.5px}
+.opt .why{display:block;font-size:12px;color:var(--muted)}
+.st{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:3px;white-space:nowrap}
+.st.open{color:var(--cyan);border:1px solid var(--cyan)}
+.st.unanswered{color:var(--amber);border:1px dashed var(--amber)}
+.st.neutralized{color:var(--violet);border:1px solid var(--violet)}
+.st.costly{color:#1a0d0b;background:var(--coral)}
+.st.lost{color:var(--coral);border:1px solid var(--coral);text-decoration:line-through}
+.st.restored{color:#08170f;background:var(--green)}
+.opt[data-s="lost"] .name{color:var(--muted);text-decoration:line-through}
+.opt[data-s="costly"] .dot,.opt[data-s="lost"] .dot{background:var(--coral)}
+.opt[data-s="unanswered"] .dot{background:var(--amber)}
+.opt[data-s="neutralized"] .dot{background:var(--violet)}
+.opt[data-s="restored"] .dot{background:var(--green)}
+table.ba{width:100%;border-collapse:collapse;font-size:13px}
+table.ba th{font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.ba td{padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+table.ba td:last-child{color:var(--coral)}
+table.ba tr.same td:last-child{color:var(--muted)}
+table.ba tr.rest td:last-child{color:var(--green)}
+.stack{display:grid;gap:14px;min-width:0}
+.accounts{display:grid;gap:6px;margin-top:8px}
+.acct{font-size:13px;border:1px dashed var(--line);border-radius:4px;padding:7px 9px}
+.acct .mono{color:var(--violet);font-size:11px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text],select{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;color:var(--ink);padding:7px 9px;font:inherit;font-size:13px;min-width:0}
+input[type=text]{flex:1 1 180px}
+.pov{font-family:var(--mono);font-size:11px;color:var(--amber)}
+/* study B */
+.branchhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.branchhead h3{margin:0;font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.08em;text-transform:uppercase}
+.A h3{color:var(--coral)} .B h3{color:var(--cyan)}
+.chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:3px;border:1px solid currentColor}
+.A{border-color:color-mix(in srgb,var(--coral) 55%,var(--line))} .B{border-color:color-mix(in srgb,var(--cyan) 55%,var(--line))}
+.event{display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding:9px 10px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2)}
+.event .ic{width:18px;height:18px;border-radius:50%;flex:none;margin-top:2px}
+.event b{display:block;font-weight:600;font-size:13.5px}
+.event span{font-size:12.5px;color:var(--muted)}
+.event .t{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.inspector h4{margin:12px 0 6px;font-family:var(--body);font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.inspector h4 i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.kv{font-size:12.5px;border:1px solid var(--line);border-radius:4px;background:var(--panel-2);padding:7px 9px;margin-bottom:5px}
+.kv span{color:var(--muted);font-family:var(--mono);font-size:11px;display:block}
+.lanes{margin-top:14px}
+.forkbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+/* study C */
+.pipe{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.layer{font-family:var(--mono);font-size:11px;padding:5px 9px;border:1px solid var(--line);border-radius:3px;color:var(--muted);transition:all .25s}
+.layer.on{color:var(--ground);background:var(--cyan);border-color:var(--cyan)}
+.layer small{opacity:.7}
+.slider{display:grid;gap:3px;margin-bottom:10px}
+.slider label{display:flex;justify-content:space-between;font-size:12.5px}
+.slider label span{font-family:var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--amber)}
+.stateTag{font-family:var(--display);font-size:18px;letter-spacing:.06em;color:var(--amber)}
+.ops{display:grid;gap:5px}
+.opbtn{display:block;width:100%;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:7px 9px;cursor:pointer}
+.opbtn b{font-family:var(--mono);font-weight:500;font-size:12px}
+.opbtn span{display:block;font-size:11.5px;color:var(--muted)}
+.opbtn.suggest{border-color:var(--amber)}
+.opbtn.suggest b::after{content:"  ← proposed by state";color:var(--amber);font-weight:400}
+.proposal{border:1px solid var(--amber);border-radius:6px;padding:12px;background:color-mix(in srgb,var(--amber) 6%,var(--panel))}
+.proposal h4{margin:0 0 4px;font-family:var(--display);font-size:16px;letter-spacing:.05em}
+.proposal p{margin:4px 0;font-size:13px}
+.proposal .perf{color:var(--cyan)}
+.diff{list-style:none;padding:0;margin:0;display:grid;gap:4px;font-family:var(--mono);font-size:12px}
+.diff li{padding:5px 8px;border-radius:3px;background:var(--panel-2);overflow-wrap:anywhere}
+.diff .add{color:var(--green)} .diff .del{color:var(--coral)} .diff .chg{color:var(--amber)} .diff .keep{color:var(--muted)}
+.log{list-style:none;padding:0;margin:0;display:grid;gap:6px;max-height:300px;overflow:auto}
+.log li{font-size:12.5px;border-left:2px solid var(--line);padding:2px 0 2px 9px}
+.log li.acc{border-color:var(--green)} .log li.rej{border-color:var(--coral)} .log li.rep{border-color:var(--violet)}
+.log .mono{font-size:10.5px;color:var(--muted)}
+.empty{color:var(--faint);font-size:12.5px;font-style:italic}
+.foot{margin-top:22px;color:var(--faint);font-family:var(--mono);font-size:11px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="top">
+  <h1 class="brand">Threshold Workbench</h1>
+  <div class="crumbs">Scene 01 / <b>Clinic communication rehearsal</b> / fictional case</div>
+  <nav class="tabs" role="tablist" aria-label="Studies">
+    <button class="tab" role="tab" id="tab-ledger" aria-selected="true" data-view="ledger">I · Option ledger</button>
+    <button class="tab" role="tab" id="tab-fork" aria-selected="false" data-view="fork">II · Fork &amp; compare</button>
+    <button class="tab" role="tab" id="tab-symbol" aria-selected="false" data-view="symbol">III · Symbol engine</button>
+  </nav>
+</header>
+
+<!-- ============ STUDY I ============ -->
+<section id="view-ledger" role="tabpanel" aria-labelledby="tab-ledger">
+  <p class="lede">Step through the encounter. The page never labels the parent a villain. It tracks three things side by side: <strong>what the parent says it is for</strong>, <strong>what the words do</strong>, and <strong>which of Mara's options now carry a cost</strong>. Concern stays constant; the method changes.</p>
+  <div class="grid studyA">
+    <div class="panel">
+      <div class="controls">
+        <button class="btn" id="a-prev">◀ Back</button>
+        <button class="btn primary" id="a-play">▶ Play</button>
+        <button class="btn" id="a-next">Step ▶</button>
+        <button class="btn" id="a-pov" aria-pressed="false">Replay from Mara's position</button>
+        <span class="pov" id="a-povnote" hidden>POV · Mara: only what she can see and do</span>
+      </div>
+      <svg class="plan" id="a-plan" viewBox="0 0 600 370" role="img" aria-label="Clinic floor plan with Mara, the parent and the clinician"></svg>
+      <div class="beats" id="a-beats"></div>
+      <div class="utter" id="a-utter"></div>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <p class="label">Visible together</p>
+        <div class="triad">
+          <div class="cell"><h4>Actor's justification</h4><p id="a-just"></p></div>
+          <div class="cell"><h4>Operation performed</h4><p id="a-op"></p></div>
+          <div class="cell"><h4>Options Mara loses</h4><p id="a-loss"></p></div>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Mara's action set</p>
+        <ul class="ledger" id="a-ledger"></ul>
+      </div>
+      <div class="panel">
+        <p class="label">Before / after (against beat 1)</p>
+        <div style="overflow-x:auto"><table class="ba" id="a-ba"></table></div>
+      </div>
+      <div class="panel">
+        <p class="label">Facilitator · other accounts of this beat</p>
+        <form class="row" id="a-form">
+          <select id="a-voice" aria-label="Whose account"><option>Mara</option><option>Parent</option><option>Clinician</option><option>Observer</option></select>
+          <input type="text" id="a-acct" placeholder="Add how they would tell this moment" aria-label="Account text">
+          <button class="btn" type="submit">Keep account</button>
+        </form>
+        <div class="accounts" id="a-accounts"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STUDY II ============ -->
+<section id="view-fork" role="tabpanel" aria-labelledby="tab-fork" hidden>
+  <p class="lede">Same starting state, one changed action. At <strong>t = 00:42</strong> the clinician responds to Mara's privacy request. Branch A defers to the parent. Choose what the clinician does in branch B and watch which consequences move and which stay put.</p>
+  <div class="forkbar">
+    <label class="mono small" for="b-choice">Changed action at 00:42</label>
+    <select id="b-choice"></select>
+    <button class="btn primary" id="b-play">▶ Play both</button>
+    <button class="btn" id="b-reset">Reset</button>
+    <span class="mono small" id="b-clock">t = 00:00</span>
+  </div>
+  <div class="grid studyB">
+    <div class="panel A">
+      <div class="branchhead"><h3>A / Refusal overridden</h3><span class="chip" id="b-gateA" style="color:var(--coral)">Private room: closed</span></div>
+      <svg class="plan" id="b-planA" viewBox="0 0 600 370" role="img" aria-label="Branch A floor plan"></svg>
+      <div class="event" id="b-evA"></div>
+    </div>
+    <div class="panel B">
+      <div class="branchhead"><h3 id="b-titleB">B / Refusal honored</h3><span class="chip" id="b-gateB" style="color:var(--cyan)">Private room: open</span></div>
+      <svg class="plan" id="b-planB" viewBox="0 0 600 370" role="img" aria-label="Branch B floor plan"></svg>
+      <div class="event" id="b-evB"></div>
+    </div>
+    <aside class="panel inspector">
+      <p class="label">Inspector</p>
+      <h4><i style="background:var(--cyan)"></i>Changed</h4><div id="b-changed"></div>
+      <h4><i style="background:var(--amber)"></i>Still unresolved</h4><div id="b-unres"></div>
+      <h4><i style="background:var(--green)"></i>Remembered by ASAPS</h4><div id="b-mem"></div>
+    </aside>
+  </div>
+  <div class="panel lanes">
+    <svg id="b-lanes" viewBox="0 0 900 120" role="img" aria-label="Event timelines for both branches"></svg>
+  </div>
+</section>
+
+<!-- ============ STUDY III ============ -->
+<section id="view-symbol" role="tabpanel" aria-labelledby="tab-symbol" hidden>
+  <p class="lede">A gathering at the private-room threshold. Pressure sets a Metisim state, and the state proposes the matching symbolic operation, so Condensation actually condenses two scene entities. Every operation keeps its source IDs. <strong>Participants accept, reject or replace the proposal</strong>; that choice becomes an authored action with a consequence.</p>
+  <div class="pipe" id="c-pipe">
+    <span class="layer" data-l="sf">Small Futures <small>situation</small></span>
+    <span class="layer" data-l="asaps">ASAPS <small>beats · memory</small></span>
+    <span class="layer" data-l="meti">Metisim <small>pressure → operation</small></span>
+    <span class="layer" data-l="half">Halfworld <small>performance</small></span>
+    <span class="layer" data-l="wyg">WYGWYL <small>archive source</small></span>
+    <span class="layer" data-l="onyx">ONYX <small>before / after</small></span>
+  </div>
+  <div class="grid studyC">
+    <div class="panel">
+      <p class="label">Pressure field</p>
+      <div class="slider"><label for="c-concern">Concern for care <span id="c-concern-v"></span></label><input type="range" id="c-concern" min="0" max="100" value="70"></div>
+      <div class="slider"><label for="c-control">Control of access <span id="c-control-v"></span></label><input type="range" id="c-control" min="0" max="100" value="62"></div>
+      <div class="slider"><label for="c-withdraw">Mara's withdrawal <span id="c-withdraw-v"></span></label><input type="range" id="c-withdraw" min="0" max="100" value="45"></div>
+      <div class="slider"><label for="c-witness">Witness present <span id="c-witness-v"></span></label><input type="range" id="c-witness" min="0" max="100" value="30"></div>
+      <p class="label" style="margin-top:12px">Metisim state</p>
+      <div class="stateTag" id="c-state"></div>
+      <p class="small" id="c-stateWhy"></p>
+      <p class="label" style="margin-top:12px">Operations</p>
+      <div class="ops" id="c-ops"></div>
+    </div>
+    <div class="panel cmid">
+      <p class="label">Threshold scene graph</p>
+      <svg id="c-scene" viewBox="0 0 600 380" role="img" aria-label="Scene entities and their relations"></svg>
+      <div id="c-proposal"></div>
+    </div>
+    <div class="stack">
+      <div class="panel"><p class="label">ONYX · last change</p><ul class="diff" id="c-diff"><li class="keep">No operation applied yet.</li></ul></div>
+      <div class="panel"><p class="label">ASAPS · consequence memory</p><ul class="log" id="c-log"></ul></div>
+    </div>
+  </div>
+</section>
+
+<p class="foot">Fictional scenario for communication rehearsal. Narrative state describes the encounter, not the people in it. Prototype composition of Small Futures, ASAPS, Metisim, Halfworld, WYGWYL and ONYX; no live interoperability.</p>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const NS="http://www.w3.org/2000/svg";
+const C={cyan:"#4fd8e8",amber:"#f4b740",coral:"#f26a5e",ink:"#d9e6ef",muted:"#7f97aa",faint:"#4f6779",line:"#21384d",grid:"#162b3e",panel:"#0f1e2c",green:"#6fd6a0",violet:"#a99cf0"};
+const el=(tag,attrs={},parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- tabs ---------- */
+const tabs=[...document.querySelectorAll(".tab")];
+function show(v){tabs.forEach(t=>{const on=t.dataset.view===v;t.setAttribute("aria-selected",on);$("#view-"+t.dataset.view).hidden=!on});}
+tabs.forEach(t=>t.addEventListener("click",()=>{show(t.dataset.view);try{history.replaceState(null,"","#"+t.dataset.view)}catch(e){}}));
+const h=location.hash.slice(1);if(["ledger","fork","symbol"].includes(h))show(h);
+
+/* ---------- shared floor plan ---------- */
+const ROOMS=[
+  {x:20,y:20,w:250,h:200,n:"WAITING"},
+  {x:270,y:20,w:150,h:200,n:"EXAM"},
+  {x:420,y:20,w:160,h:200,n:"PRIVATE"},
+  {x:20,y:220,w:560,h:130,n:"CORRIDOR"}];
+function drawPlan(svg,{gate="closed",pov=false}={}){
+  svg.innerHTML="";
+  const defs=el("defs",{},svg);
+  const p=el("pattern",{id:svg.id+"-g",width:20,height:20,patternUnits:"userSpaceOnUse"},defs);
+  el("path",{d:"M20 0H0V20",fill:"none",stroke:C.grid,"stroke-width":1},p);
+  el("rect",{x:0,y:0,width:600,height:370,fill:`url(#${svg.id}-g)`},svg);
+  ROOMS.forEach(r=>{el("rect",{x:r.x,y:r.y,width:r.w,height:r.h,fill:"none",stroke:"#2c4a63","stroke-width":2},svg);
+    const t=el("text",{x:r.x+10,y:r.y+18,fill:C.muted,"font-size":11,"letter-spacing":1.5},svg);t.textContent=r.n;});
+  // furniture
+  [[40,60],[40,100],[40,140]].forEach(([x,y])=>el("rect",{x,y,width:26,height:26,rx:3,fill:"none",stroke:"#28455c"},svg));
+  el("rect",{x:300,y:60,width:90,height:36,rx:3,fill:"none",stroke:"#28455c"},svg);
+  el("rect",{x:470,y:150,width:24,height:24,rx:3,fill:"none",stroke:"#28455c"},svg);
+  // doorways
+  el("line",{x1:270,y1:150,x2:270,y2:190,stroke:C.panel,"stroke-width":4},svg);
+  el("line",{x1:110,y1:220,x2:160,y2:220,stroke:C.panel,"stroke-width":4},svg);
+  // ride + exit
+  el("rect",{x:470,y:285,width:62,height:48,rx:4,fill:"none",stroke:C.cyan,"stroke-opacity":.6},svg);
+  const rt=el("text",{x:501,y:314,fill:C.cyan,"font-size":11,"text-anchor":"middle"},svg);rt.textContent="RIDE";
+  const ex=el("text",{x:556,y:342,fill:C.muted,"font-size":10,"text-anchor":"end"},svg);ex.textContent="EXIT ▸";
+  // gate
+  const gc={open:C.cyan,closed:C.coral,costly:C.amber}[gate];
+  el("rect",{x:416,y:120,width:8,height:50,fill:gc,opacity:gate==="open"?.9:.85},svg);
+  if(gate!=="open"){const x=el("text",{x:420,y:150,fill:"#1a0d0b","font-size":11,"text-anchor":"middle","font-weight":700},svg);x.textContent=gate==="closed"?"×":"$";}
+  if(pov){ // fog outside Mara's knowledge
+    el("rect",{x:0,y:0,width:600,height:370,fill:C.panel,opacity:.35},svg);
+  }
+  return svg;
+}
+function agent(svg,{x,y,c,name,mark}){
+  const g=el("g",{class:"ag"},svg);
+  el("circle",{cx:x,cy:y,r:13,fill:"none",stroke:c,"stroke-opacity":.35,"stroke-width":5},g);
+  el("circle",{cx:x,cy:y,r:9,fill:c},g);
+  const t=el("text",{x,y:y+27,fill:c,"font-size":11,"text-anchor":"middle"},g);t.textContent=name;
+  if(mark){const m=el("text",{x:x+14,y:y-12,fill:C.coral,"font-size":12,"font-weight":700},g);m.textContent=mark;}
+  return g;
+}
+function path(svg,pts,c,dash="5 5"){el("polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:c,"stroke-width":2,"stroke-dasharray":dash,opacity:.8},svg)}
+
+/* ================= STUDY I : option ledger ================= */
+const OPTS=[
+  {id:"priv",n:"Request a private conversation"},
+  {id:"corr",n:"Correct the parent's account"},
+  {id:"decl",n:"Decline the parent's help"},
+  {id:"ride",n:"Leave with the ride home"},
+  {id:"phone",n:"Keep her phone"}];
+const BEATS=[
+ {k:"Assistance",who:"Parent",line:"She fainted Tuesday at work. Mara, tell her the rest.",
+  just:"I can fill in what she might forget.",op:["none","Assistance"],opwhy:"Supplies details, then hands the turn back.",
+  pos:{m:[150,120],p:[200,150],c:[330,140]},gate:"closed",
+  s:{priv:"open",corr:"open",decl:"open",ride:"open",phone:"open"},why:{}},
+ {k:"Collision",who:"Parent",line:"You always forget the important parts.",prompt:"Mara: Could I talk with the doctor alone for a minute?",
+  just:"Accuracy. The doctor needs the whole history.",op:["int","Interruption"],opwhy:"Takes the turn at the moment Mara asks for privacy.",
+  pos:{m:[300,150],p:[350,170],c:[360,120]},gate:"closed",
+  s:{priv:"unanswered",corr:"open",decl:"open",ride:"open",phone:"open"},why:{priv:"Asked; the parent answered instead."}},
+ {k:"Poison pill",who:"Parent",line:"Your resistance is exactly why I need to stay.",prompt:"Mara: I don't need you here for this.",
+  just:"Her objection shows how much she needs me.",op:["pill","Narrative poison pill"],opwhy:"Refusal is converted into evidence for the parent's account.",
+  pos:{m:[310,150],p:[360,150],c:[360,100]},gate:"closed",
+  s:{priv:"unanswered",corr:"neutralized",decl:"neutralized",ride:"open",phone:"open"},
+  why:{corr:"Any correction now counts as proof she's unreliable.",decl:"Declining is read as the reason to stay."}},
+ {k:"Smokescreen",who:"Parent",line:"I've driven her to every appointment for six years. Who else is doing that?",prompt:"Clinician: Would you mind stepping out for a few minutes?",
+  just:"Years of sacrifice earn a place in the room.",op:["smoke","Narrative smokescreen"],opwhy:"The question about stepping out is answered with a story about caregiving.",
+  pos:{m:[310,160],p:[390,145],c:[340,95]},gate:"closed",
+  s:{priv:"unanswered",corr:"neutralized",decl:"neutralized",ride:"open",phone:"open"},
+  why:{priv:"Second request, still unanswered. Attention moved to the parent's record."}},
+ {k:"Consequential turn",who:"Parent",turn:true,line:"Go in there alone and you can find your own way home.",prompt:"Parent pockets Mara's phone.",
+  just:"Still: I'm only trying to protect her.",op:["turn","Imposed cost"],opwhy:"Exercising an option she had now triggers a penalty. This is the turn.",
+  pos:{m:[320,165],p:[385,140],c:[340,95]},gate:"costly",
+  s:{priv:"costly",corr:"neutralized",decl:"costly",ride:"costly",phone:"lost"},
+  why:{priv:"Cost: loses the ride home.",decl:"Cost: loses the ride home.",ride:"Only if the parent stays in the room.",phone:"Taken by the parent."}},
+ {k:"Reversal",who:"Parent",rev:true,line:"Here's your phone. I'll wait in the car; the ride's there either way.",prompt:"Clinician: Mara would like a few minutes. Would that be all right?",
+  just:"Helping can mean stepping outside.",op:["rev","Reversal"],opwhy:"The parent restores the options without conditions.",
+  pos:{m:[470,95],p:[500,310],c:[530,120]},gate:"open",
+  s:{priv:"restored",corr:"restored",decl:"restored",ride:"restored",phone:"restored"},why:{priv:"Private conversation begins.",ride:"Unconditional."}}];
+const BA_ROWS=[
+ {b:"Help can be declined.",o:"decl",a:{neutralized:"Declining is read as proof help is needed.",costly:"Declining help triggers a penalty.",restored:"Help can be declined again."}},
+ {b:"Mara can correct the account.",o:"corr",a:{neutralized:"Correction is treated as evidence against her.",restored:"Correction is heard."}},
+ {b:"Privacy can be requested.",o:"priv",a:{unanswered:"The request goes unanswered.",costly:"Requesting privacy costs the ride home.",restored:"Private conversation begins."}},
+ {b:"The ride home is unconditional.",o:"ride",a:{costly:"The ride depends on the parent staying.",restored:"The ride is unconditional again."}},
+ {b:"Mara holds her phone.",o:"phone",a:{lost:"The parent holds the phone.",restored:"The phone is returned."}}];
+let ai=0,apov=false,aTimer=null;const accounts={};
+const beatsEl=$("#a-beats");
+BEATS.forEach((b,i)=>{const btn=document.createElement("button");btn.className="beat"+(b.turn?" turn":"")+(b.rev?" rev":"");
+  btn.innerHTML=`<span class="n">${i+1}</span><span class="t">${b.k}</span>`;btn.addEventListener("click",()=>{stopA();ai=i;renderA()});beatsEl.appendChild(btn)});
+function renderA(){
+  const b=BEATS[ai];
+  [...beatsEl.children].forEach((c,i)=>{if(i===ai)c.setAttribute("aria-current","step");else c.removeAttribute("aria-current")});
+  const svg=drawPlan($("#a-plan"),{gate:b.gate,pov:apov});
+  const {m,p,c}=b.pos;
+  if(b.gate==="open")path(svg,[[310,160],[400,150],[m[0],m[1]]],C.cyan);
+  else path(svg,[[m[0],m[1]],[410,145]],C.coral,"3 5");
+  if(b.k==="Reversal")path(svg,[[405,145],[405,260],[p[0],p[1]]],C.muted);
+  agent(svg,{x:c[0],y:c[1],c:C.ink,name:"Clinician"});
+  agent(svg,{x:p[0],y:p[1],c:C.amber,name:apov?"Parent (seen)":"Parent",mark:b.turn?"!":""});
+  agent(svg,{x:m[0],y:m[1],c:C.cyan,name:"Mara"});
+  if(b.s.phone==="lost"){const t=el("text",{x:p[0]-28,y:p[1]-16,fill:C.coral,"font-size":10},svg);t.textContent="▣ phone";}
+  if(apov){const t=el("text",{x:20,y:362,fill:C.amber,"font-size":10},svg);t.textContent="Mara cannot see the ride's departure board or the parent's reasons.";}
+  $("#a-utter").innerHTML=(b.prompt?`<div class="small">${esc(b.prompt)}</div>`:"")+`<div class="who">${b.who}</div><q>${esc(b.line)}</q>`;
+  $("#a-just").textContent=apov?"(hidden from Mara's position)":b.just;
+  $("#a-op").innerHTML=`<span class="op ${b.op[0]}">${b.op[1]}</span><br><span class="small">${esc(b.opwhy)}</span>`;
+  const lost=OPTS.filter(o=>["costly","lost","neutralized"].includes(b.s[o.id]));
+  $("#a-loss").innerHTML=b.rev?`<span style="color:var(--green)">None. All five restored.</span>`:lost.length?lost.map(o=>`${esc(o.n)} <span class="small">(${b.s[o.id]})</span>`).join("<br>"):`<span class="small">None yet.</span>`;
+  $("#a-ledger").innerHTML=OPTS.map(o=>{const s=b.s[o.id];return `<li class="opt" data-s="${s}"><span class="dot"></span><span class="name">${esc(o.n)}${b.why[o.id]?`<span class="why">${esc(b.why[o.id])}</span>`:""}</span><span class="st ${s}">${s}</span></li>`}).join("");
+  $("#a-ba").innerHTML=`<tr><th>Before</th><th>Now · beat ${ai+1}</th></tr>`+BA_ROWS.map(r=>{const s=b.s[r.o];const a=r.a[s];
+    return `<tr class="${a?(s==="restored"?"rest":""):"same"}"><td>${esc(r.b)}</td><td>${a?esc(a):"Unchanged."}</td></tr>`}).join("");
+  const list=accounts[ai]||[];
+  $("#a-accounts").innerHTML=list.length?list.map(a=>`<div class="acct"><span class="mono">${esc(a.v)} · beat ${ai+1}</span><br>${esc(a.t)}</div>`).join(""):`<div class="empty">One account so far. Accounts added here sit beside it; none overwrites another.</div>`;
+  $("#a-prev").disabled=ai===0;$("#a-next").disabled=ai===BEATS.length-1;
+}
+function stopA(){clearInterval(aTimer);aTimer=null;$("#a-play").textContent="▶ Play"}
+$("#a-prev").onclick=()=>{stopA();ai=Math.max(0,ai-1);renderA()};
+$("#a-next").onclick=()=>{stopA();ai=Math.min(BEATS.length-1,ai+1);renderA()};
+$("#a-play").onclick=()=>{if(aTimer){stopA();return}if(ai===BEATS.length-1)ai=0;$("#a-play").textContent="❚❚ Pause";renderA();
+  aTimer=setInterval(()=>{if(ai>=BEATS.length-1){stopA();return}ai++;renderA()},2200)};
+$("#a-pov").onclick=e=>{apov=!apov;e.currentTarget.setAttribute("aria-pressed",apov);e.currentTarget.textContent=apov?"Return to facilitator view":"Replay from Mara's position";$("#a-povnote").hidden=!apov;renderA()};
+$("#a-form").addEventListener("submit",e=>{e.preventDefault();const t=$("#a-acct").value.trim();if(!t)return;(accounts[ai]=accounts[ai]||[]).push({v:$("#a-voice").value,t});$("#a-acct").value="";renderA()});
+accounts[3]=[{v:"Observer",t:"Nobody answered the clinician's question. Everyone talked about the drive instead."}];
+renderA();
+
+/* ================= STUDY II : fork ================= */
+const T=[0,18,42,66,98];
+const SHARED=[
+ {t:0,label:"Arrive",m:[150,120],p:[200,150],c:[330,140],gate:"closed",ev:["Arrive at clinic","Mara, parent, clinician in waiting area."]},
+ {t:18,label:"Discuss",m:[300,150],p:[350,170],c:[360,120],gate:"closed",ev:["Discuss next steps","Parent answers most questions."]}];
+const BASE_A=[...SHARED,
+ {t:42,label:"Privacy requested",m:[300,150],p:[395,145],c:[350,100],gate:"closed",bad:1,ev:["Parent remains","Blocks access to private room."]},
+ {t:66,label:"Ride conditioned",m:[310,165],p:[405,145],c:[350,100],gate:"costly",bad:1,ev:["Ride conditioned","Ride offered only if the parent stays."]},
+ {t:98,label:"Leave together",m:[420,300],p:[440,255],c:[350,100],gate:"closed",bad:1,ev:["Visit ends","History incomplete; no private conversation."]}];
+const CHOICES={
+ honor:{n:"Honor refusal",title:"Refusal honored",
+  steps:[{t:42,label:"Privacy requested",m:[470,95],p:[300,150],c:[520,130],gate:"open",ev:["Private conversation begins","Mara and clinician enter private room."]},
+         {t:66,label:"Ride conditioned",m:[480,100],p:[200,150],c:[520,130],gate:"open",bad:1,ev:["Parent threatens ride","The condition moved to the waiting room."]},
+         {t:98,label:"Leaves",m:[200,170],p:[160,150],c:[350,100],gate:"open",bad:1,ev:["Visit ends","History complete; ride still uncertain."]}],
+  changed:[["Conversation access","Honor refusal"],["History","Complete"]],unres:[["Transport home","Ride arranged: no"],["Phone","Still with parent"]],mem:"clinician.honoredRefusal = true"},
+ voucher:{n:"Offer clinic ride voucher",title:"Ride decoupled",
+  steps:[{t:42,label:"Privacy requested",m:[300,150],p:[395,145],c:[350,100],gate:"closed",bad:1,ev:["Parent remains","Privacy still blocked."]},
+         {t:66,label:"Voucher offered",m:[310,165],p:[395,145],c:[350,100],gate:"open",ev:["Ride decoupled","Clinic offers transport; the condition loses its force."]},
+         {t:98,label:"Private talk",m:[470,95],p:[200,150],c:[520,130],gate:"open",ev:["Private conversation begins","Later, with transport secured."]}],
+  changed:[["Transport home","Clinic voucher"],["Conversation access","Delayed, then granted"]],unres:[["Parent's account","Unchallenged"],["Phone","Still with parent"]],mem:"mara.rideUnconditional = true"},
+ name:{n:"Name the condition aloud",title:"Condition named",
+  steps:[{t:42,label:"Privacy requested",m:[300,150],p:[390,150],c:[350,100],gate:"closed",ev:["Condition named","“The ride shouldn't depend on this.”"]},
+         {t:66,label:"Parent reconsiders",m:[320,160],p:[330,190],c:[350,100],gate:"open",ev:["Phone returned","Parent steps back from the door."]},
+         {t:98,label:"Private talk",m:[470,95],p:[420,290],c:[525,140],gate:"open",ev:["Private conversation begins","Parent waits by the car."]}],
+  changed:[["Phone","Returned"],["Conversation access","Granted"],["Transport home","Unconditional"]],unres:[["Parent's concern","Unaddressed; may return"]],mem:"parent.reversal = true"},
+ nothing:{n:"Stay silent (control)",title:"No change",
+  steps:BASE_A.slice(2),changed:[],unres:[["Conversation access","Blocked"],["Transport home","Conditioned"],["Phone","With parent"]],mem:"nothing new recorded"}};
+const sel=$("#b-choice");Object.entries(CHOICES).forEach(([k,v])=>{const o=document.createElement("option");o.value=k;o.textContent=v.n;sel.appendChild(o)});
+let bt=42,bTimer=null;
+function branchB(){return [...SHARED,...CHOICES[sel.value].steps]}
+function stateAt(seq,t){let s=seq[0];for(const x of seq)if(x.t<=t)s=x;return s}
+function drawBranch(svg,s,col){
+  const g=drawPlan(svg,{gate:s.gate});
+  if(s.gate==="open"&&s.m[0]>420)path(g,[[300,150],[400,145],[s.m[0],s.m[1]]],C.cyan);
+  else if(s.bad)path(g,[[s.m[0],s.m[1]],[410,145]],C.coral,"3 5");
+  agent(g,{x:s.c[0],y:s.c[1],c:C.ink,name:"Clinician"});
+  agent(g,{x:s.p[0],y:s.p[1],c:C.amber,name:"Parent",mark:s.bad&&s.t>=42?"!":""});
+  agent(g,{x:s.m[0],y:s.m[1],c:C.cyan,name:"Mara"});
+}
+function evHTML(s){const ok=!s.bad;return `<span class="ic" style="background:${ok?C.green:C.coral}"></span><div><b>${esc(s.ev[0])}</b><span>${esc(s.ev[1])}</span></div><span class="t">t = ${fmtT(s.t)}</span>`}
+function fmtT(t){const m=Math.floor(t/60),s=Math.floor(t%60);return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`}
+function renderB(){
+  const ch=CHOICES[sel.value];const a=stateAt(BASE_A,bt),b=stateAt(branchB(),bt);
+  drawBranch($("#b-planA"),a);drawBranch($("#b-planB"),b);
+  $("#b-evA").innerHTML=evHTML(a);
+  $("#b-evB").innerHTML=evHTML(b);
+  $("#b-titleB").textContent="B / "+ch.title;
+  const gl={open:["Private room: open",C.cyan],closed:["Private room: closed",C.coral],costly:["Private room: costly",C.amber]};
+  [["#b-gateA",a],["#b-gateB",b]].forEach(([id,s])=>{$(id).textContent=gl[s.gate][0];$(id).style.color=gl[s.gate][1]});
+  $("#b-clock").textContent="t = "+fmtT(bt);
+  const kv=arr=>arr.length?arr.map(([k,v])=>`<div class="kv"><span>${esc(k)}</span>${esc(v)}</div>`).join(""):`<div class="empty">Nothing.</div>`;
+  $("#b-changed").innerHTML=kv(ch.changed);$("#b-unres").innerHTML=kv(ch.unres);
+  $("#b-mem").innerHTML=`<div class="kv mono" style="font-size:11.5px">${esc(ch.mem)}</div>`;
+  // lanes
+  const L=$("#b-lanes");L.innerHTML="";const x0=210,x1=880,sx=t=>x0+(x1-x0)*t/110;
+  [[0,"0:00"],[30,"0:30"],[60,"1:00"],[90,"1:30"]].forEach(([t,l])=>{el("line",{x1:sx(t),y1:20,x2:sx(t),y2:96,stroke:C.grid},L);const tx=el("text",{x:sx(t),y:114,fill:C.faint,"font-size":11,"text-anchor":"middle","font-family":"Chivo Mono, monospace"},L);tx.textContent=l});
+  [[BASE_A,40,"A  Refusal overridden",C.coral],[branchB(),78,"B  "+ch.title,C.cyan]].forEach(([seq,y,name,col])=>{
+    const tx=el("text",{x:8,y:y+4,fill:col,"font-size":11,"font-family":"Chivo Mono, monospace"},L);tx.textContent=name;
+    el("line",{x1:x0,y1:y,x2:x1,y2:y,stroke:col,"stroke-opacity":.4},L);
+    seq.forEach(s=>{const c=el("circle",{cx:sx(s.t),cy:y,r:s.t===42?7:5,fill:s.bad?C.coral:(s.t<42?C.muted:col)},L);const ti=el("title",{},c);ti.textContent=s.ev[0]});});
+  el("line",{x1:sx(42),y1:8,x2:sx(42),y2:100,stroke:C.ink,"stroke-dasharray":"3 3"},L);
+  const pr=el("text",{x:sx(42)+6,y:14,fill:C.ink,"font-size":11,"font-family":"Chivo Mono, monospace"},L);pr.textContent="Privacy requested · fork";
+  el("line",{x1:sx(bt),y1:22,x2:sx(bt),y2:96,stroke:C.amber,"stroke-width":2},L);
+}
+function stopB(){clearInterval(bTimer);bTimer=null;$("#b-play").textContent="▶ Play both"}
+$("#b-play").onclick=()=>{if(bTimer){stopB();return}if(bt>=104)bt=0;$("#b-play").textContent="❚❚ Pause";bTimer=setInterval(()=>{bt+=1;if(bt>=104){bt=104;stopB()}renderB()},70)};
+$("#b-reset").onclick=()=>{stopB();bt=0;renderB()};
+sel.onchange=renderB;renderB();
+
+/* ================= STUDY III : symbol engine ================= */
+const INIT=[
+ {id:"E1",n:"Mara's phone",k:"object",x:120,y:90,owner:"Parent",src:"Beat 5 · pocketed"},
+ {id:"E2",n:"Car keys",k:"object",x:120,y:270,owner:"Parent",src:"Ride home"},
+ {id:"E3",n:"Private-room door",k:"place",x:470,y:180,state:"closed",src:"Floor plan"},
+ {id:"E4",n:"“Six years of driving”",k:"account",x:300,y:330,owner:"Parent",src:"Beat 4 · smokescreen"},
+ {id:"E5",n:"“I need to speak alone”",k:"request",x:300,y:50,owner:"Mara",src:"Beat 2 · unanswered"}];
+const REL0=[["E2","E3","ride ⇐ door stays shut"],["E1","E5","voice for the request"],["E4","E3","justifies blocking"]];
+let ents=JSON.parse(JSON.stringify(INIT)),rels=JSON.parse(JSON.stringify(REL0)),pending=null,nextId=6,lastDiff=null;const log=[];
+const sliders=["concern","control","withdraw","witness"];
+function P(){const o={};sliders.forEach(s=>o[s]=+$("#c-"+s).value);return o}
+function metState(p){
+  if(p.control>75&&p.witness<40)return ["Censorship","Control is high and nobody is watching: something gets withheld.","censor"];
+  if(p.control>55&&p.concern>55)return ["Condensation","Care and control press on the same objects: two things fuse.","cond"];
+  if(p.withdraw>60)return ["Displacement","Mara withdraws: the conflict moves onto something else.","disp"];
+  if(p.witness>65)return ["Secondary revision","A witness wants an account: the record gets smoothed.","rev"];
+  if(p.concern+p.control>90)return ["Symbolization","Unnamed conflict needs something to hold.","sym"];
+  return ["Idle","Pressure is low. Nothing proposes itself.",null];
+}
+const OPS={
+ cond:{n:"Condensation",d:"Fuse two entities; keep both source IDs.",run(){const a=byId("E1")||ents.find(e=>e.k==="object"),b=byId("E2")||ents.filter(e=>e.k==="object"&&e!==a)[0];if(!a||!b)return null;
+   const id="E"+nextId;return {title:"The phone hangs on the key ring",does:`${a.id} + ${b.id} → ${id}`,reading:"Her voice and her way home become one object the parent holds.",
+   perf:"Halfworld: the parent turns the ring over in one hand; Mara's eyes follow the keys, not the clinician.",
+   apply(){nextId++;ents=ents.filter(e=>e!==a&&e!==b);ents.push({id,n:"Phone on the key ring",k:"object",x:(a.x+b.x)/2,y:(a.y+b.y)/2,owner:"Parent",src:`condensed from ${a.id}, ${b.id}`,from:[a.id,b.id]});
+     rels=rels.map(r=>r.map(v=>v===a.id||v===b.id?id:v));return [["add",`${id} Phone on the key ring  ⟵ [${a.id}, ${b.id}]`],["del",`${a.id} ${a.n}`],["del",`${b.id} ${b.n}`],["chg",`relations rewired to ${id}`]]}}}},
+ disp:{n:"Displacement",d:"Move an established relation onto another object.",run(){const r=rels.find(r=>r[2].includes("ride")||r[2].includes("door stays"));const tgt=ents.find(e=>e.k==="account");if(!r||!tgt)return null;
+   return {title:"The condition moves to the story",does:`relation "${r[2]}" : ${r[0]} → ${tgt.id}`,reading:"The ride is no longer the lever; the six-year account is. Leaving now means leaving the story too.",
+   perf:"Halfworld: the parent stops gesturing at the car and starts counting years on their fingers.",
+   apply(){const old=r[0];r[0]=tgt.id;r[2]="leaving ⇐ betrays the account";return [["chg",`${old} → ${tgt.id}: "${r[2]}"`],["keep",`origin retained: ${old}`]]}}}},
+ sym:{n:"Symbolization",d:"Give the conflict a manipulable object.",run(){const id="E"+nextId;return {title:"Two chairs, one coat",does:`new ${id} from E3 + E5`,reading:"The parent's coat is draped over the chair inside the private room. Moving it is the request made physical.",
+   perf:"Halfworld: Mara can pick up the coat. The parent watches whether she hands it back or hangs it outside.",
+   apply(){nextId++;ents.push({id,n:"Coat on the private-room chair",k:"symbol",x:470,y:330,owner:"shared",src:"symbolized from E3, E5",from:["E3","E5"]});rels.push([id,"E3","moving it opens the room"]);return [["add",`${id} Coat on the private-room chair ⟵ [E3, E5]`],["add",`${id} → E3 "moving it opens the room"`]]}}}},
+ censor:{n:"Censorship",d:"Withhold a line or block a route.",run(){const r=byId("E5");if(!r||r.hidden)return null;return {title:"The request drops out of the room",does:"E5 hidden · route to E3 blocked",reading:"Mara's request stays on record but no one in the scene can hear it now.",
+   perf:"Halfworld: Mara starts the sentence and stops. The clinician looks at the chart.",
+   apply(){r.hidden=true;const d=byId("E3");if(d)d.state="blocked";return [["chg","E5 visible → withheld (record kept)"],["chg","E3 door: closed → blocked"]]}}}},
+ rev:{n:"Secondary revision",d:"Assemble an account from the log; keep the record.",run(){const id="E"+nextId;return {title:"“She got confused, so I helped”",does:`${id} assembled from beats 2–5`,reading:"A smooth story for the witness. The underlying events stay attached and can be opened.",
+   perf:"Halfworld: the parent addresses the receptionist, warm and fluent; Mara is narrated in the third person.",
+   apply(){nextId++;ents.push({id,n:"“She got confused, so I helped”",k:"account",x:300,y:200,owner:"Parent",src:"revised from E4, E5 + log",from:["E4","E5"]});rels.push([id,"E5","covers"]);return [["add",`${id} revised account ⟵ [E4, E5]`],["keep","E4, E5 preserved underneath"]]}}}}};
+const byId=id=>ents.find(e=>e.id===id);
+function renderOps(){const [st,why,key]=metState(P());$("#c-state").textContent=st;$("#c-stateWhy").textContent=why;
+  sliders.forEach(s=>$(`#c-${s}-v`).textContent=$("#c-"+s).value);
+  $("#c-ops").innerHTML=Object.entries(OPS).map(([k,o])=>`<button class="opbtn${k===key?" suggest":""}" data-op="${k}"><b>${o.n}</b><span>${o.d}</span></button>`).join("");
+  document.querySelectorAll(".opbtn").forEach(b=>b.onclick=()=>propose(b.dataset.op));}
+function lightPipe(ls){document.querySelectorAll(".layer").forEach(l=>l.classList.toggle("on",ls.includes(l.dataset.l)))}
+function propose(k){const pr=OPS[k].run();if(!pr){$("#c-proposal").innerHTML=`<p class="empty">${OPS[k].n} has nothing left to act on in this scene.</p>`;return}
+  pending={k,...pr};lightPipe(["meti","half","wyg"]);
+  $("#c-proposal").innerHTML=`<div class="proposal"><p class="label" style="color:var(--amber)">Metisim proposes · ${OPS[k].n}</p><h4>${esc(pr.title)}</h4>
+   <p class="mono small">${esc(pr.does)}</p><p>${esc(pr.reading)}</p><p class="perf">${esc(pr.perf)}</p>
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="c-acc">Accept</button><button class="btn" id="c-rej">Reject</button>
+   <input type="text" id="c-repl" placeholder="Or replace with your own symbol" aria-label="Replacement symbol"><button class="btn" id="c-rep">Replace</button></div></div>`;
+  $("#c-acc").onclick=()=>decide("acc");$("#c-rej").onclick=()=>decide("rej");$("#c-rep").onclick=()=>decide("rep");
+  renderScene();}
+function decide(kind){if(!pending)return;const who="Participant";let diff,text;
+  if(kind==="acc"){diff=pending.apply();text=`Accepted ${OPS[pending.k].n}: ${pending.title}`}
+  else if(kind==="rej"){diff=[["keep","Scene unchanged"],["add",`rejection recorded: ${OPS[pending.k].n}`]];text=`Rejected ${OPS[pending.k].n}: ${pending.title}. The parent's next line must not use it.`}
+  else{const v=$("#c-repl").value.trim();if(!v){$("#c-repl").focus();return}const id="E"+nextId++;ents.push({id,n:v,k:"symbol",x:470,y:60,owner:"participant",src:`replaces proposal (${OPS[pending.k].n})`});diff=[["add",`${id} ${v}  ⟵ authored by participant`],["keep",`proposal "${pending.title}" archived`]];text=`Replaced ${OPS[pending.k].n} with “${v}”`}
+  log.unshift({kind,text,t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"})});lastDiff=diff;pending=null;
+  lightPipe(["asaps","onyx","sf"]);$("#c-proposal").innerHTML="";renderScene();renderSide();}
+function renderSide(){$("#c-diff").innerHTML=lastDiff?lastDiff.map(([c,t])=>`<li class="${c}">${c==="add"?"+ ":c==="del"?"− ":c==="chg"?"~ ":"= "}${esc(t)}</li>`).join(""):`<li class="keep">No operation applied yet.</li>`;
+  $("#c-log").innerHTML=log.length?log.map(l=>`<li class="${l.kind}"><span class="mono">${l.t} · ${l.kind==="acc"?"accepted":l.kind==="rej"?"rejected":"replaced"}</span><br>${esc(l.text)}</li>`).join(""):`<li class="empty">Interpretations become actions here. Accept, reject or replace a proposal to record one.</li>`;}
+function renderScene(){const svg=$("#c-scene");svg.innerHTML="";
+  const p=el("pattern",{id:"cg",width:20,height:20,patternUnits:"userSpaceOnUse"},el("defs",{},svg));el("path",{d:"M20 0H0V20",fill:"none",stroke:C.grid},p);
+  el("rect",{width:600,height:380,fill:"url(#cg)"},svg);
+  el("line",{x1:420,y1:20,x2:420,y2:360,stroke:"#2c4a63","stroke-width":2,"stroke-dasharray":"8 6"},svg);
+  const th=el("text",{x:428,y:36,fill:C.muted,"font-size":11,"font-family":"Chivo Mono, monospace"},svg);th.textContent="THRESHOLD ▸ PRIVATE";
+  rels.forEach(([a,b,l])=>{const A=byId(a),B=byId(b);if(!A||!B)return;el("line",{x1:A.x,y1:A.y,x2:B.x,y2:B.y,stroke:l.includes("open")?C.cyan:C.coral,"stroke-opacity":.6,"stroke-width":1.5,"stroke-dasharray":"4 4"},svg);
+    const t=el("text",{x:(A.x+B.x)/2,y:(A.y+B.y)/2-5,fill:C.muted,"font-size":10,"text-anchor":"middle","font-family":"Chivo Mono, monospace"},svg);t.textContent=l;});
+  const col={object:C.amber,place:C.cyan,account:C.coral,request:C.cyan,symbol:C.violet};
+  ents.forEach(e=>{const g=el("g",{opacity:e.hidden?.3:1},svg);const c=col[e.k];const tw=Math.max(110,(e.n+(e.state?" · "+e.state:"")).length*6.6+20);
+    const hot=pending&&pending.does.includes(e.id);
+    el("rect",{x:e.x-tw/2,y:e.y-20,width:tw,height:40,rx:4,fill:C.panel,stroke:hot?C.amber:c,"stroke-width":hot?2.5:1.3,"stroke-dasharray":e.hidden?"3 3":"none"},g);
+    const t1=el("text",{x:e.x,y:e.y-3,fill:C.ink,"font-size":12,"text-anchor":"middle","font-family":"Familjen Grotesk, sans-serif"},g);t1.textContent=e.n+(e.state?` · ${e.state}`:"");
+    const t2=el("text",{x:e.x,y:e.y+12,fill:c,"font-size":9.5,"text-anchor":"middle","font-family":"Chivo Mono, monospace"},g);t2.textContent=`${e.id} · ${e.src}`;
+    const ti=el("title",{},g);ti.textContent=`${e.id} ${e.n}\nkind: ${e.k}\nsource: ${e.src}${e.from?"\nsource IDs: "+e.from.join(", "):""}`;});
+}
+sliders.forEach(s=>$("#c-"+s).addEventListener("input",renderOps));
+renderOps();renderScene();renderSide();lightPipe(["sf","asaps"]);propose(metState(P())[2]||"sym");
+})();
+</script>
