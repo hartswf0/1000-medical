@@ -1,0 +1,647 @@
+<title>The Slopling's Odyssey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap">
+<style>
+/* Layout: a single cardboard theatre (16:9 canvas) over a kraft desk, transport bar below, production record beneath.
+   Deliberately single dark theme: the film is a lit tabletop in a dark room. */
+:root{
+  --room:#17130f; --board:#2a221a; --kraft:#c49a64; --kraft-dk:#8a6a43; --ink:#efe3cf; --muted:#a8977f;
+  --brass:#c9a24a; --ember:#d9663a; --sea:#2f5e6a;
+  --display:"Fraunces", Georgia, serif; --type:"Courier Prime", "Courier New", monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--room);color:var(--ink);font-family:var(--type);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:14px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,3.4vw,34px);margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+.stage{position:relative;background:#000;border-radius:6px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.choice{position:absolute;inset:0;display:grid;place-items:center;background:rgba(15,10,6,.55)}
+.choice .box{width:min(92%,760px);display:grid;gap:10px}
+.choice p{margin:0;font-family:var(--display);font-size:clamp(15px,2.2vw,22px);text-align:center;color:var(--ink)}
+.choice .opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.choice button{font:inherit;font-size:clamp(11px,1.5vw,14px);text-align:left;cursor:pointer;color:#20160c;background:var(--kraft);
+  border:2px solid var(--kraft-dk);border-radius:4px;padding:10px 12px;box-shadow:3px 4px 0 rgba(0,0,0,.45)}
+.choice button b{display:block;font-size:1.15em}
+.choice button:hover,.choice button:focus-visible{background:#d7b07a;outline:none;transform:translate(-1px,-1px)}
+.choice small{display:block;text-align:center;color:var(--muted);font-size:12px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;font-size:13px;background:var(--board);color:var(--ink);border:1px solid #4a3c2c;border-radius:4px;padding:8px 14px;cursor:pointer}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#1d1406;font-weight:700}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.time{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+.scrub{position:relative;flex:1 1 240px;height:28px}
+.scrub input{width:100%;accent-color:var(--brass);margin:0;position:absolute;top:6px}
+.chapters{display:flex;flex-wrap:wrap;gap:6px}
+.chap{font:inherit;font-size:11.5px;background:transparent;color:var(--muted);border:1px solid #3a2f23;border-radius:3px;padding:4px 7px;cursor:pointer}
+.chap[aria-current="true"]{color:var(--ink);border-color:var(--brass)}
+.chap.key{border-style:dashed;border-color:var(--ember);color:#f0b79a}
+section.rec{background:var(--board);border:1px solid #3a2f23;border-radius:6px;padding:16px;display:grid;gap:12px}
+section.rec h2{font-family:var(--display);font-size:20px;margin:0}
+section.rec h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:6px 0 4px;font-weight:400}
+section.rec p,section.rec li{font-size:13.5px;line-height:1.55;max-width:80ch;margin:0}
+section.rec ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:720px){.cols{grid-template-columns:1fr}.choice .opts{grid-template-columns:1fr}}
+.verdict{border-left:3px solid var(--ember);padding-left:10px}
+.verdict.ok{border-color:#7fae6a}
+@media (prefers-reduced-motion:reduce){.choice button{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>The Slopling's Odyssey</h1>
+    <p class="sub">A cardboard tragicomedy in three crossings · Call, Voyage, Return · sound on</p>
+  </header>
+
+  <div class="stage">
+    <canvas id="cv" width="1280" height="720" aria-label="Animated film"></canvas>
+    <div class="choice" id="choice" hidden>
+      <div class="box">
+        <p>Olympus, 10 a.m. Scylla on one side, Charybdis on the other.</p>
+        <div class="opts">
+          <button data-c="accept"><b>Accept</b>Take the chair, like the makers before you.</button>
+          <button data-c="decline"><b>Decline</b>Stay at the workbench. Let them call it a lack of ambition.</button>
+          <button data-c="reneg"><b>Renegotiate</b>"What if I lead the craft instead of the people?"</button>
+          <button data-c="stall"><b>Feign madness</b>Plough the sprint board with salt.</button>
+        </div>
+        <small id="choiceTimer">The Greeks will decide for you in 12 s.</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button class="btn primary" id="play">▶ Play</button>
+    <div class="scrub"><input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Scrub"></div>
+    <span class="time" id="time">0:00 / 0:00</span>
+  </div>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+
+  <section class="rec" id="record">
+    <h2>Production record</h2>
+    <div class="cols">
+      <div>
+        <h3>Creative thesis</h3>
+        <p>The ladder can only see what is painted on the card: titles, charts, headcount. Odie's craft has no paint on it, so the film draws it as the one thing cardboard can't hold: a thin line of light from his head to the work. The film is built toward a single moment in the orchard, when his father closes a pair of calipers "without a hair of light" and recognizes the same invisible tolerance in his son. Pride moves off the title and onto the hand.</p>
+        <h3>Defining passage</h3>
+        <p>Chapter 13, the orchard. Long holds, the father keeps grafting, the trees get named, then the bugs get named as grafts on "the committee" tree. The calipers close. The TEAM LEAD? tag is cut loose and the hand lands on the shoulder.</p>
+        <h3>Formal choices</h3>
+        <ul>
+          <li>Brad-jointed puppets built from your card sheet (torso 57 cm, thigh 47, shin 43; 10 cm = 60 px). Odie's limbs and heads are your painted cardboard pieces.</li>
+          <li>Paper-theatre staging: layered cards, one lamp, real cast shadows. Everything moves on pivots; nothing morphs.</li>
+          <li>Status is a paper tag on a string. The ladder hangs tags; the father cuts one.</li>
+          <li>Sound is synthesized live: room tone, card slides, brad clicks, a five-note motif that only resolves in the orchard.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Quality references</h3>
+        <ul>
+          <li>Lotte Reiniger, <i>The Adventures of Prince Achmed</i> (1926): acting carried entirely by joint timing and silhouette.</li>
+          <li>Yuri Norstein, <i>Tale of Tales</i> (1979): layered cut-out depth, and holds that carry thought.</li>
+          <li>Terry Gilliam's Monty Python cut-outs: comic timing of snaps against stillness, for the office and the Cyclops.</li>
+          <li>Homer, <i>Odyssey</i> 24 (Laertes's orchard): recognition through a shared practice rather than a sign.</li>
+        </ul>
+        <p class="small" style="color:var(--muted);font-size:12px;margin-top:6px">Limitation: no agent in this production could play the reference films. They are named as targets. Review used still frames from this render, not the films.</p>
+        <h3>Independent review</h3>
+        <div id="verdicts" style="display:grid;gap:8px">
+          <p class="verdict"><b>Critic 1 (whole film, stills): reference stronger.</b> Primary gap: the father's hand never touched the son, because they stood on different ground lines at different scales. The tag fell before the touch with no one cutting it. The father's brow never changed. Protected: the calipers insert, the trees and bugs named as tags, the warming light, the office satire frames.</p>
+          <p class="verdict"><b>Repair.</b> Same ground line and scale for both. The father walks in and his forearm lands on the shoulder and holds. The father's brow and mouth now change at "proud". He cuts the tag with his grafting knife after the touch. The bug tags moved out from behind him, and the tree captions are staggered.</p>
+          <p class="verdict"><b>Critic 2 (fresh, orchard only): touch and cut order met. Ground line not met.</b> Cause: the drawn puppets' legs were about 45 px shorter than Odie's sprite legs, film-wide. Fixed in the rig, so every scene is corrected. Odie now reaches back to his father's arm.</p>
+          <p class="verdict ok"><b>Status: production milestone, not a final film.</b> Every judgement came from stills. No reviewer watched playback timing or heard the sound.</p>
+        </div>
+        <h3>Representation of real people</h3>
+        <p>The technologists appear as drifted-name cardboard figures, identified by props and settings (a unicycle, an inbox, a dashboard). The film uses no photographs of them. Quotes are the verified lines from the story file, word for word. Mau Piailug does not appear in this cut; his passage needs care that a comic paper puppet can't give.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const cv=document.getElementById("cv"),X=cv.getContext("2d");const W=1280,H=720;
+const TAU=Math.PI*2,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
+const ease={lin:t=>t,io:t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,
+  back:t=>{const c=1.6;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)},snap:t=>t<.85?0:1};
+// deterministic noise
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+
+/* ---------------- assets ---------------- */
+const IMG={};const names=["thigh","shin","uarm","farm","hand","boot","headF","headP"];
+let loaded=0;names.forEach(n=>{const i=new Image();i.onload=()=>{loaded++;if(loaded===names.length)ready()};i.onerror=()=>{loaded++;if(loaded===names.length)ready()};i.src="assets/"+n+".png";IMG[n]=i});
+// pivots in sprite pixels: A (proximal brad), B (distal)
+const PIV={thigh:[[52,18],[46,243]],shin:[[47,10],[47,196]],uarm:[[50,16],[50,160]],farm:[[46,20],[46,222]],
+  hand:[[53,20],[53,128]],boot:[[30,18],[150,120]],headF:[[160,500],[160,10]],headP:[[127,383],[180,10]]};
+
+/* ---------------- textures ---------------- */
+function mk(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c}
+const corr=(()=>{const c=mk(6,6),g=c.getContext("2d");g.fillStyle="rgba(0,0,0,.18)";g.fillRect(0,0,6,2);g.fillStyle="rgba(255,255,255,.05)";g.fillRect(0,3,6,1);return X.createPattern(c,"repeat")})();
+const fiber=(()=>{const c=mk(256,256),g=c.getContext("2d");seed=11;for(let i=0;i<2600;i++){g.fillStyle=`rgba(${rnd()<.5?0:255},${rnd()<.5?0:200},0,${rnd()*.06})`;g.fillRect(rnd()*256,rnd()*256,1+rnd()*3,1)}return X.createPattern(c,"repeat")})();
+const grainC=(()=>{const c=mk(320,180),g=c.getContext("2d"),d=g.createImageData(320,180);seed=3;for(let i=0;i<d.data.length;i+=4){const v=rnd()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=10}g.putImageData(d,0,0);return c})();
+
+/* ---------------- card primitives ---------------- */
+function shadowOn(o=1){X.shadowColor="rgba(10,6,2,.55)";X.shadowBlur=10*o;X.shadowOffsetX=5*o;X.shadowOffsetY=7*o}
+function shadowOff(){X.shadowColor="transparent";X.shadowBlur=0;X.shadowOffsetX=0;X.shadowOffsetY=0}
+// draw a card from a path builder, with fill, corrugation, kraft edge
+function card(build,fill,{edge="#b78d58",corrugate=true,shadow=1,alpha=1,lw=2.2}={}){
+  X.save();X.globalAlpha*=alpha;X.beginPath();build();
+  if(shadow){shadowOn(shadow)}X.fillStyle=fill;X.fill();shadowOff();
+  if(corrugate){X.save();X.clip();X.fillStyle=corr;X.fill();X.fillStyle=fiber;X.fill();X.restore()}
+  X.lineWidth=lw;X.strokeStyle=edge;X.stroke();X.restore();
+}
+function rrect(x,y,w,h,r){return()=>{X.roundRect(x,y,w,h,r)}}
+function capsule(len,w0,w1){return()=>{const r0=w0/2,r1=w1/2;X.moveTo(-r0,0);X.arc(0,0,r0,Math.PI,0);X.lineTo(r1,len);X.arc(0,len,r1,0,Math.PI);X.closePath()}}
+function brad(x,y,r=4.5){X.save();X.beginPath();X.arc(x,y,r,0,TAU);const g=X.createRadialGradient(x-r*.35,y-r*.35,r*.1,x,y,r);g.addColorStop(0,"#fff1b8");g.addColorStop(.45,"#c9a24a");g.addColorStop(1,"#6b4e17");X.fillStyle=g;X.fill();X.restore()}
+function label(txt,x,y,{size=18,color="#20160c",font="type",align="center",weight=400}={}){X.save();X.font=`${weight} ${size}px ${font==="type"?'"Courier Prime", monospace':'"Fraunces", Georgia, serif'}`;X.fillStyle=color;X.textAlign=align;X.textBaseline="middle";X.fillText(txt,x,y);X.restore()}
+// paper tag hanging on a string from (ax,ay)
+function tag(txt,ax,ay,len,sw=0,{w=null,fill="#efe1c4",size=16,cut=0}={}){
+  X.save();X.translate(ax,ay+cut);X.rotate(sw);X.strokeStyle="rgba(240,228,200,.7)";X.lineWidth=1.2;
+  if(cut<=0){X.beginPath();X.moveTo(0,0);X.lineTo(0,len);X.stroke()}
+  X.font=`700 ${size}px "Courier Prime", monospace`;const tw=w||X.measureText(txt).width+26;
+  X.translate(0,len);card(()=>{X.moveTo(-tw/2+10,0);X.lineTo(tw/2,0);X.lineTo(tw/2,size*2);X.lineTo(-tw/2,size*2);X.lineTo(-tw/2,10);X.closePath()},fill,{corrugate:false,edge:"#9b7a4c",shadow:.6});
+  X.beginPath();X.arc(-tw/2+12,10,3,0,TAU);X.fillStyle="#6b5233";X.fill();
+  label(txt,6,size,{size,color:"#2a1c0e",weight:700});X.restore();
+}
+
+/* ---------------- puppet rig ---------------- */
+// pose fields: x,y (hip), s (scale), f (1 right / -1 left), tor (torso lean), nk (neck), hd ("P"/"F"),
+// shF,elF,wrF (front arm), shB,elB,wrB (back arm), hpF,knF,ftF, hpB,knB,ftB. angles in radians, 0 = hanging down.
+const BASE={x:640,y:600,gy:1,s:1,f:1,tor:0,nk:0,hd:"P",shF:.08,elF:-.08,wrF:0,shB:-.06,elB:-.1,wrB:0,hpF:.02,knF:.02,ftF:0,hpB:-.02,knB:.02,ftB:0,bob:0};
+const K=2.2; // px per cm
+function boneSprite(name,len){const im=IMG[name];if(!im||!im.width)return false;const [A,B]=PIV[name];const d=Math.hypot(B[0]-A[0],B[1]-A[1]);const sc=len/d;
+  X.save();X.scale(sc,sc);X.drawImage(im,-A[0],-A[1]);X.restore();return true}
+function limb(spec,name,len,w0,w1,ang,cb){X.save();X.rotate(ang);
+  if(spec.sprites){shadowOn(.5);boneSprite(name,len);shadowOff()}else{card(capsule(len,w0,w1),spec.cloth,{shadow:.5});
+    if(spec.seam){X.strokeStyle=spec.seam;X.lineWidth=2;X.beginPath();X.moveTo(0,4);X.lineTo(0,len-4);X.stroke()}brad(0,0,3.5)}
+  X.translate(0,len);cb&&cb();X.restore()}
+function drawPuppet(spec,p){
+  X.save();X.translate(p.x,p.y-190*p.s*(p.gy??1)+(p.bob||0));X.scale(p.s*p.f,p.s);
+  const lk=spec.sprites?1:1.25;const L={tor:57*K*.78,th:47*K*.9*lk,sh:43*K*.9*lk,ua:31*K*.95,fa:27*K*.95,hd:20*K};
+  const leg=(hp,kn,ft,dx,back)=>{X.save();X.translate(dx,0);if(back)X.globalAlpha*=.92;
+    limb(spec,"thigh",L.th,16*K*.55,13*K*.55,hp,()=>{limb(spec,"shin",L.sh,12*K*.55,10*K*.55,kn,()=>{X.save();X.rotate(ft);
+      if(spec.sprites&&IMG.boot.width){const [A]=PIV.boot;const sc=.55;shadowOn(.4);X.drawImage(IMG.boot,-A[0]*sc,-A[1]*sc,IMG.boot.width*sc,IMG.boot.height*sc);shadowOff()}
+      else card(()=>{X.moveTo(-10,-6);X.lineTo(12,-6);X.quadraticCurveTo(40,2,42,14);X.lineTo(-12,14);X.closePath()},spec.shoe||"#1b1714",{shadow:.4});
+      X.restore()})});X.restore()};
+  const arm=(sh,el,wr,back)=>{X.save();X.translate(0,-L.tor*.86);if(back)X.globalAlpha*=.92;
+    limb(spec,"uarm",L.ua,11*K*.55,10*K*.55,sh,()=>{limb(spec,"farm",L.fa,10*K*.55,8*K*.55,el,()=>{X.save();X.rotate(wr);
+      if(spec.sprites&&IMG.hand.width){shadowOn(.3);boneSprite("hand",9*K);shadowOff()}else{card(()=>{X.ellipse(0,9,7,11,0,0,TAU)},spec.skin,{corrugate:false,shadow:.3})}
+      if(p.hold&&!back)p.hold();if(p.holdB&&back)p.holdB();X.restore()})});X.restore()};
+  // back limbs
+  X.save();X.rotate(p.tor);arm(p.shB,p.elB,p.wrB,true);X.restore();
+  leg(p.hpB,p.knB,p.ftB,-6,true);
+  // torso
+  X.save();X.rotate(p.tor);
+  const tw=74,hw=60;
+  card(()=>{X.moveTo(-hw/2,0);X.lineTo(hw/2,0);X.lineTo(tw/2,-L.tor*.82);X.quadraticCurveTo(tw/2-4,-L.tor,0,-L.tor);X.quadraticCurveTo(-tw/2+4,-L.tor,-tw/2,-L.tor*.82);X.closePath()},spec.top,{shadow:.8});
+  if(spec.seam){X.strokeStyle=spec.seam;X.lineWidth=2.4;X.beginPath();X.moveTo(tw*.18,-L.tor*.95);X.lineTo(hw*.22,-6);X.stroke()}
+  if(spec.torsoDeco)spec.torsoDeco(L,tw,hw);
+  brad(hw*.3,-4);
+  // head
+  X.save();X.translate(0,-L.tor*.97);X.rotate(p.nk);
+  if(spec.sprites){const n=p.hd==="F"?"headF":"headP";const im=IMG[n];if(im&&im.width){const [A]=PIV[n];const sc=(p.hd==="F"?28:30)*K/ (p.hd==="F"?500:383);
+      shadowOn(.6);X.save();if(p.hd==="F")X.scale(spec.flipFront?-1:1,1);X.drawImage(im,-A[0]*sc,-A[1]*sc,im.width*sc,im.height*sc);X.restore();shadowOff()}}
+  else spec.head(p);
+  X.restore();
+  X.restore();
+  leg(p.hpF,p.knF,p.ftF,6,false);
+  X.save();X.rotate(p.tor);arm(p.shF,p.elF,p.wrF,false);X.restore();
+  X.restore();
+}
+// procedural head painter (profile, facing +x)
+function paintHead({skin="#c99a72",hair="#3a2a1e",hairStyle="short",beard=null,glasses=false,brow=0,mouth=0,eye=1,big=1,extra=null}={}){
+  return (p)=>{X.save();X.scale(big,big);
+    card(()=>{X.moveTo(-8,0);X.lineTo(8,0);X.lineTo(9,-12);X.lineTo(-9,-12);X.closePath()},skin,{corrugate:false,shadow:.3});
+    card(()=>{X.ellipse(4,-34,21,25,0,0,TAU)},skin,{corrugate:false,shadow:.5});
+    // nose
+    X.fillStyle=skin;X.strokeStyle="#9b7a4c";X.lineWidth=1.6;X.beginPath();X.moveTo(23,-38);X.quadraticCurveTo(33,-28,24,-24);X.fill();X.stroke();
+    // hair
+    X.fillStyle=hair;X.beginPath();
+    if(hairStyle==="short"){X.ellipse(0,-46,21,15,-.2,Math.PI*.9,Math.PI*2.05);X.fill()}
+    else if(hairStyle==="bob"){X.ellipse(-2,-40,23,24,0,Math.PI*.75,Math.PI*2.1);X.lineTo(-10,-18);X.fill()}
+    else if(hairStyle==="bun"){X.ellipse(0,-46,21,14,-.2,Math.PI*.9,Math.PI*2.05);X.fill();X.beginPath();X.arc(-14,-58,8,0,TAU);X.fill()}
+    else if(hairStyle==="grey"){X.fillStyle="#cfc7b8";X.ellipse(-3,-44,20,13,-.3,Math.PI*.85,Math.PI*2);X.fill()}
+    else if(hairStyle==="quiff"){X.ellipse(0,-46,21,15,-.2,Math.PI*.9,Math.PI*2.05);X.fill();X.beginPath();X.ellipse(16,-60,14,8,-.4,0,TAU);X.fill()}
+    else if(hairStyle==="cap"){X.ellipse(0,-48,22,14,0,Math.PI,TAU);X.fill();X.fillRect(10,-50,24,5)}
+    else if(hairStyle==="long"){X.ellipse(-4,-40,22,26,0,Math.PI*.7,Math.PI*2.05);X.fill()}
+    else if(hairStyle==="bald"){}
+    // ear
+    X.fillStyle=skin;X.beginPath();X.ellipse(-4,-32,4,6,0,0,TAU);X.fill();X.stroke();
+    // eye & brow
+    X.fillStyle="#1d140c";X.beginPath();X.ellipse(15,-38,2.2,2.2*eye,0,0,TAU);X.fill();const bw=p&&p.brow!=null?p.brow:brow,mo=p&&p.mouth!=null?p.mouth:mouth;
+    X.strokeStyle=hair==="#3a2a1e"?"#2a1d12":hair;X.lineWidth=2.2;X.beginPath();X.moveTo(10,-45-bw);X.lineTo(20,-44+bw*1.5);X.stroke();
+    if(glasses){X.strokeStyle="#222";X.lineWidth=1.8;X.beginPath();X.arc(16,-38,6,0,TAU);X.moveTo(10,-38);X.lineTo(-2,-38);X.stroke()}
+    if(beard){X.fillStyle=beard;X.beginPath();X.moveTo(-2,-30);X.quadraticCurveTo(4,-6,22,-14);X.lineTo(24,-22);X.quadraticCurveTo(10,-20,4,-30);X.fill()}
+    // mouth
+    X.strokeStyle="#6e3d2a";X.lineWidth=1.8;X.beginPath();X.moveTo(17,-20);X.quadraticCurveTo(21,-20+mo,24,-21);X.stroke();
+    brad(0,-4,3.2);extra&&extra();X.restore()}}
+
+/* ---------------- cast ---------------- */
+const ODIE={sprites:true,top:"#1c1a19",seam:"#b4513b",cloth:"#1c1a19"};
+const LARS={top:"#5b5a3a",cloth:"#4a4434",skin:"#d2a37a",shoe:"#3b2b1e",seam:null,head:paintHead({skin:"#d4a57c",hairStyle:"grey",brow:1}),
+  torsoDeco:(L,tw)=>{X.fillStyle="rgba(0,0,0,.18)";X.fillRect(-tw*.35,-L.tor*.55,tw*.25,14)}};
+const DANA={top:"#7a3b4a",cloth:"#3a3340",skin:"#8a5a3c",shoe:"#20181a",head:paintHead({skin:"#8d5d3f",hair:"#1d1410",hairStyle:"bob",mouth:4}),
+  torsoDeco:(L)=>{X.strokeStyle="#4fa3c7";X.lineWidth=3;X.beginPath();X.moveTo(-8,-L.tor*.95);X.lineTo(0,-L.tor*.55);X.lineTo(8,-L.tor*.95);X.stroke();X.fillStyle="#e8eef2";X.fillRect(-7,-L.tor*.55,14,18)}};
+const CHAD={top:"#3e6aa8",cloth:"#c8b48a",skin:"#e2b48e",head:paintHead({skin:"#e6b892",hair:"#a0702d",hairStyle:"quiff",mouth:5})};
+const DOUG={top:"#6f8a3a",cloth:"#3b3b44",skin:"#dcae86",head:paintHead({skin:"#deb088",hair:"#c43a2e",hairStyle:"cap",mouth:3})};
+const INES={top:"#2f6b63",cloth:"#2b2a33",skin:"#b98260",head:paintHead({skin:"#bd8763",hair:"#2a1a12",hairStyle:"bun",brow:-1})};
+const LINOS={top:"#6c6a8f",cloth:"#45434f",skin:"#ecc4a4",head:paintHead({skin:"#efc8a8",hair:"#9c7a4a",hairStyle:"short",glasses:true,beard:null})};
+const SHANN={top:"#d8cba7",cloth:"#585048",skin:"#ecc8a6",head:paintHead({skin:"#efcaa8",hair:"#4a3a2a",hairStyle:"short",mouth:5})};
+const TOMS={top:"#7d5a3a",cloth:"#3e3a35",skin:"#e8c2a0",head:paintHead({skin:"#eac4a2",hair:"#d8d2c4",hairStyle:"bald",beard:"#e3ddd2",glasses:true})};
+const AJAX={top:"#55595e",cloth:"#45484c",skin:"#8b8f94",shoe:"#2a2c2f",head:paintHead({skin:"#9a9ea3",hair:"#3b3e42",hairStyle:"short",beard:"#3b3e42",brow:-2,eye:.4,big:1.1})};
+const GREEK=(c,h,hs)=>({top:c,cloth:"#3a3530",skin:h,head:paintHead({skin:h,hair:"#2b2018",hairStyle:hs,mouth:5})});
+
+/* ---------------- tweening ---------------- */
+// keys: [[t, {fields}, ease]] ; fields carry forward
+function track(keys,base=BASE){const full=[];let acc={...base};for(const [t,v,e] of keys){acc={...acc,...v};full.push([t,{...acc},e||"io"])}
+  return t=>{if(t<=full[0][0])return full[0][1];for(let i=1;i<full.length;i++){const [t1,v1,e]=full[i],[t0,v0]=full[i-1];
+      if(t<=t1){const u=ease[e]((t-t0)/(t1-t0||1));const o={};for(const k in v1){o[k]=typeof v1[k]==="number"&&typeof v0[k]==="number"?lerp(v0[k],v1[k],u):(u<.5?v0[k]:v1[k])}return o}}
+    return full[full.length-1][1]}}
+const val=(keys)=>{const tr=track(keys.map(([t,v,e])=>[t,{v},e]),{v:0});return t=>tr(t).v};
+const walk=(t,speed=1)=>{const c=Math.sin(t*speed*5.2);return{hpF:c*.38,knF:Math.max(0,-c)*.5+.05,hpB:-c*.38,knB:Math.max(0,c)*.5+.05,shF:-c*.25,shB:c*.25,elF:-.2,elB:-.2,bob:-Math.abs(Math.sin(t*speed*5.2))*5}};
+const clap=(t,r=7)=>{const c=(Math.sin(t*r*TAU/2)+1)/2;return{shF:-1.1,elF:-1.2+c*.5,shB:-1.05,elB:-1.2-c*.4}};
+
+/* ---------------- sets ---------------- */
+function backdrop(top,bot){const g=X.createLinearGradient(0,0,0,H);g.addColorStop(0,top);g.addColorStop(1,bot);X.fillStyle=g;X.fillRect(-400,-300,W+800,H+600);X.fillStyle=fiber;X.fillRect(-400,-300,W+800,H+600)}
+function floor(y,col){card(()=>{X.rect(-400,y,W+800,H-y+400)},col,{shadow:0,edge:"rgba(0,0,0,0)"})}
+function lamp(x,y,r,a=.35,col="255,214,150"){a*=1.6;const g=X.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(${col},${a})`);g.addColorStop(1,`rgba(${col},0)`);X.fillStyle=g;X.fillRect(x-r,y-r,r*2,r*2)}
+function vignette(a=.55){a*=.55;const g=X.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*.95);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,`rgba(0,0,0,${a})`);X.fillStyle=g;X.fillRect(0,0,W,H)}
+function office(t,{dusk=1,banner=null,alarm=0}={}){
+  backdrop("#2b2a33","#1a1714");
+  // window grid at dusk
+  for(let i=0;i<4;i++){card(rrect(90+i*290,70,250,230,4),`hsl(${25+i*4},${45*dusk}%,${30+18*dusk}%)`,{shadow:.6,corrugate:false,edge:"#6d5a44"});
+    X.fillStyle="rgba(30,25,40,.55)";for(let b=0;b<5;b++){const bh=40+((i*7+b*13)%5)*18;X.fillRect(100+i*290+b*48,300-bh,36,bh)}}
+  if(banner){card(()=>{X.moveTo(380,40);X.quadraticCurveTo(640,85,900,40);X.lineTo(900,80);X.quadraticCurveTo(640,125,380,80);X.closePath()},"#d7c49c",{corrugate:false,shadow:.6});label(banner,640,82,{size:17,weight:700})}
+  floor(470,"#3b3128");
+  if(alarm){X.fillStyle=`rgba(220,40,30,${alarm*(.18+.12*Math.sin(t*9))})`;X.fillRect(0,0,W,H)}
+}
+function desk(x,y,{glow=1,code=0,warn=0,t=0}={}){
+  card(rrect(x-170,y,340,22,3),"#6a4d33",{shadow:1});card(rrect(x-150,y+22,16,130,2),"#5a412b",{shadow:.6});card(rrect(x+134,y+22,16,130,2),"#5a412b",{shadow:.6});
+  // monitor
+  card(rrect(x-90,y-150,180,120,6),"#191716",{shadow:1});
+  X.fillStyle=`rgba(80,180,190,${.25+.35*glow})`;X.fillRect(x-80,y-140,160,100);
+  for(let i=0;i<7;i++){const w=30+((i*37)%90);X.fillStyle=i===warn?`rgba(255,120,80,${.9})`:"rgba(220,255,250,.6)";X.fillRect(x-72+(i%3)*6,y-132+i*13,Math.min(w,w*clamp(code*7-i,0,1)),4)}
+  card(rrect(x-12,y-30,24,30,2),"#2a2624",{shadow:.4});
+  lamp(x,y-90,260,.22*glow,"120,220,230");
+}
+// thread of light: the invisible theory
+function thread(x0,y0,x1,y1,a,t){if(a<=0)return;X.save();X.globalCompositeOperation="lighter";
+  for(let k=0;k<3;k++){X.strokeStyle=`rgba(255,226,160,${a*(k?0.18:.75)})`;X.lineWidth=k?6+k*4:1.6;X.beginPath();X.moveTo(x0,y0);
+    const mx=(x0+x1)/2,my=Math.min(y0,y1)-60+Math.sin(t*2)*8;X.quadraticCurveTo(mx,my,x1,y1);X.stroke()}
+  // travelling bead
+  const u=(t*.6)%1;const mx=(x0+x1)/2,my=Math.min(y0,y1)-60+Math.sin(t*2)*8;const bx=(1-u)*(1-u)*x0+2*(1-u)*u*mx+u*u*x1,by=(1-u)*(1-u)*y0+2*(1-u)*u*my+u*u*y1;
+  X.fillStyle=`rgba(255,240,200,${a})`;X.beginPath();X.arc(bx,by,3,0,TAU);X.fill();X.restore()}
+function waves(t,y,col,amp,ph,sp){card(()=>{X.moveTo(-400,H+300);X.lineTo(-400,y);for(let x=-400;x<=W+400;x+=40){X.lineTo(x,y+Math.sin(x*.012+t*sp+ph)*amp+Math.sin(x*.031+ph)*amp*.4)}X.lineTo(W+400,H+300);X.closePath()},col,{shadow:.7,edge:"#c2a77a"})}
+function ship(x,y,r){X.save();X.translate(x,y);X.rotate(r);
+  card(()=>{X.moveTo(-170,0);X.lineTo(170,0);X.lineTo(120,50);X.lineTo(-130,50);X.closePath()},"#5b3b22",{shadow:1});
+  card(rrect(-6,-230,10,232,2),"#4a3220",{shadow:.6});card(()=>{X.moveTo(8,-220);X.quadraticCurveTo(120,-140,10,-40);X.closePath()},"#e6d5ae",{corrugate:false,shadow:.8});
+  X.strokeStyle="#b4513b";X.lineWidth=3;X.beginPath();X.moveTo(-170,14);X.lineTo(170,14);X.stroke();brad(-150,26);brad(150,26);X.restore()}
+function caption(who,txt,a){if(a<=0||!txt)return;X.save();X.globalAlpha=a;X.font='400 25px "Courier Prime", monospace';
+  const lines=wrap(txt,920);const h=26+lines.length*32+(who?24:0);const y=H-h-22;
+  card(rrect(W/2-500,y,1000,h,4),"#e9d9b8",{corrugate:false,shadow:.8,edge:"#9b7a4c"});
+  if(who)label(who.toUpperCase(),W/2-476,y+22,{size:14,align:"left",color:"#8a3b22",weight:700});
+  lines.forEach((l,i)=>label(l,W/2,y+(who?44:22)+i*32+6,{size:25,color:"#22170c"}));X.restore()}
+function wrap(t,w){X.font='400 25px "Courier Prime", monospace';const words=t.split(" ");const out=[];let cur="";for(const wd of words){const tryS=cur?cur+" "+wd:wd;if(X.measureText(tryS).width>w&&cur){out.push(cur);cur=wd}else cur=tryS}out.push(cur);return out}
+function card3(txt,x,y,w,h,{size=30,fill="#efe1c4",rot=0}={}){X.save();X.translate(x,y);X.rotate(rot);card(rrect(-w/2,-h/2,w,h,4),fill,{corrugate:false,shadow:1,edge:"#9b7a4c"});brad(-w/2+14,-h/2+14);brad(w/2-14,-h/2+14);label(txt,0,4,{size,font:"display",weight:700});X.restore()}
+
+/* ---------------- audio ---------------- */
+let AC=null,master=null,rev=null;
+function audioInit(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.7;master.connect(AC.destination);
+  rev=AC.createConvolver();const len=AC.sampleRate*2.2,b=AC.createBuffer(2,len,AC.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}rev.buffer=b;const rg=AC.createGain();rg.gain.value=.35;rev.connect(rg);rg.connect(master);
+  // room tone
+  const n=noiseBuf(4),src=AC.createBufferSource();src.buffer=n;src.loop=true;const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=320;const g=AC.createGain();g.gain.value=.035;src.connect(lp);lp.connect(g);g.connect(master);src.start()}catch(e){AC=null}}
+function noiseBuf(s){const b=AC.createBuffer(1,AC.sampleRate*s,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b}
+function env(g,t,a,peak,d){g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d)}
+const SFX={
+  note(f,d=1.2,v=.16,type="triangle",wet=true){if(!AC)return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;env(g,t,.01,v,d);o.connect(g);g.connect(master);if(wet)g.connect(rev);o.start(t);o.stop(t+d+.1)},
+  pluck(f,v=.18){this.note(f,1.6,v,"triangle");this.note(f*2,.5,v*.25,"sine")},
+  click(v=.25){if(!AC)return;const t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf(.05);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.frequency.value=3200;bp.Q.value=4;const g=AC.createGain();env(g,t,.001,v,.04);s.connect(bp);bp.connect(g);g.connect(master);s.start(t)},
+  slide(v=.12,d=.5){if(!AC)return;const t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf(d+.1);const bp=AC.createBiquadFilter();bp.type="bandpass";bp.frequency.setValueAtTime(900,t);bp.frequency.linearRampToValueAtTime(1800,t+d);const g=AC.createGain();env(g,t,d*.4,v,d*.6);s.connect(bp);bp.connect(g);g.connect(master);s.start(t)},
+  claps(n=14){if(!AC)return;for(let i=0;i<n;i++){setTimeout(()=>this.click(.18+Math.random()*.15),i*90+Math.random()*50)}},
+  boom(){this.note(55,1.8,.35,"sine",true);this.note(82,1.2,.15,"sawtooth",true)},
+  siren(){[523,659,587,523,494].forEach((f,i)=>setTimeout(()=>this.note(f,.9,.07,"sine"),i*420))},
+  phone(){for(let i=0;i<2;i++)setTimeout(()=>{this.note(880,.25,.06,"square",false);this.note(1100,.25,.04,"square",false)},i*380)},
+  motif(major=false){const m=major?[293.7,370,440,370,587.3]:[293.7,349.2,440,392,349.2];m.forEach((f,i)=>setTimeout(()=>this.pluck(f,.14),i*520))},
+  snip(){this.click(.4);setTimeout(()=>this.click(.2),60)},
+  pour(){this.slide(.08,1.6)},
+};
+
+/* ---------------- scenes ---------------- */
+// each: {id,title,dur,draw(t),caps:[[t0,t1,who,text]],cues:[[t,fn]],key?}
+let CHOICE="decline";
+const S=[];
+// 0 Title
+S.push({id:"title",title:"Title",dur:7,draw(t){backdrop("#2a2017","#140f0b");lamp(640,300,520,.3);
+  const y=val([[0,-200],[1.4,300,"back"],[7,310]])(t);card3("The Slopling's Odyssey",640,y,760,120,{size:52});
+  const y2=val([[0,900],[2,900],[3,450,"back"]])(t);card3("a tragicomedy in three crossings",640,y2,520,56,{size:22,fill:"#d9c39a",rot:-.02});
+  vignette()},cues:[[1.2,()=>SFX.slide(.15,.4)],[1.45,()=>SFX.click(.35)],[2.9,()=>SFX.click(.25)],[3.2,()=>SFX.motif()]]});
+
+// 1 The slopling at the desk
+const odie1=track([[0,{x:560,y:540,f:1,shF:-1.25,elF:-.55,shB:-1.15,elB:-.6,tor:.12,nk:.05}],[3.5,{nk:.08}],[5.2,{tor:.2,nk:.18},"out"],[5.8,{shF:-1.3,elF:-.2},"snap"],[9,{shF:-1.3,elF:-.2,tor:.2,nk:.18}],[10.2,{tor:.1,nk:0,shF:-1.25,elF:-.55}],[14,{}]]);
+S.push({id:"desk",title:"The slopling",dur:14,draw(t){office(t);desk(780,430,{code:t/4,warn:t>5&&t<9?4:-1,t});
+  const p=odie1(t);
+  thread(600,250,770,320,clamp((t-2)/2,0,1)*(t>9.5?1:.75),t);
+  drawPuppet(ODIE,p);
+  if(t>5.2&&t<9){label("too clean.",880,240,{size:22,color:"#ffb08a",weight:700})}
+  lamp(700,200,500,.18);vignette()},
+  caps:[[1,5,"","Odie Marsh, 29. AI-assisted software engineer. In the group chat: a slopling."],[5.4,9,"","He felt the bug before the tests did. The diff will look the same either way."],[9.5,13.6,"","Nobody can see the part he's good at."]],
+  cues:[[5.2,()=>SFX.click(.3)],[5.25,()=>SFX.note(196,.5,.08,"sine")]]});
+
+// 2 Dana's offer
+const dana2=track([[0,{x:1400,y:540,f:-1,...walk(0)}],[3,{x:820,...walk(0)},"out"],[3.3,{shF:-.4,elF:-1.4,shB:.1,elB:-.2,hpF:0,knF:0,hpB:0,knB:0,bob:0}],[6,{shF:-1.6,elF:-.4}],[9,{shF:-1.7,elF:-.2,shB:-1.6,elB:-.3}],[14,{shF:-.3,elF:-1,shB:.05}]]);
+const odie2=track([[0,{x:480,y:540,f:1,tor:.05}],[3.4,{nk:-.05}],[6,{nk:.1,tor:-.03}],[9.5,{nk:.15,shF:-.4,elF:-1.3}],[14,{nk:.12}]]);
+S.push({id:"offer",title:"Quick chat :)",dur:14,draw(t){office(t);
+  const dp=dana2(t);if(t<3){Object.assign(dp,walk(t))}
+  drawPuppet(ODIE,odie2(t));drawPuppet(DANA,dp);
+  // title tag descends on Odie
+  if(t>6){const y=val([[6,-80],[7.4,60,"back"],[14,60]])(t);tag("TEAM LEAD",480,-20,y+40,Math.sin(t*2.2)*.06)}
+  lamp(640,180,520,.2);vignette()},
+  caps:[[3.2,6.2,"Dana","Odie! I'm going to say two words. Team. Lead."],[6.4,9.6,"Dana","You'd be prompting the people who prompt the machines."],[9.8,13.8,"Dana","Which is a little bit of a joke at its own expense. But it's a good joke! It's a joke with equity."]],
+  cues:[[6.9,()=>SFX.slide(.12,.4)],[7.4,()=>SFX.click(.3)]]});
+
+// 3 The Greeks on the beach
+S.push({id:"greeks",title:"The Greeks at Aulis",dur:11,draw(t){backdrop("#3a3a46","#1e1a18");
+  // the office becomes a beach: horizon + ship
+  waves(t,420,"#2f5e6a",8,0,1);ship(1060,430,Math.sin(t)*.02);floor(520,"#a88a5a");
+  const crowd=[[160,GREEK("#a14a3a","#e0b08a","short")],[300,CHAD],[420,DOUG],[700,GREEK("#4a6a8a","#9a6a4a","long")],[820,GREEK("#7a6a3a","#d8a880","quiff")]];
+  crowd.forEach(([x,sp],i)=>{const c=clap(t+i*.13,6+i*.4);drawPuppet(sp,{...BASE,x,y:600,s:.85,f:x<560?1:-1,...c,nk:-.12})});
+  // Odie pushed toward ship
+  const ox=val([[0,560],[11,640,"io"]])(t);drawPuppet(ODIE,{...BASE,x:ox,y:610,s:.9,f:1,tor:-.06,nk:-.06});
+  tag("TEAM LEAD",ox,0,140,Math.sin(t*2.6)*.08);
+  // Ines does not clap
+  drawPuppet(INES,{...BASE,x:960,y:620,s:.8,f:-1,shF:.05,elF:-.2,nk:.05});
+  lamp(640,160,600,.28);vignette()},
+  caps:[[.6,5,"","By lunch it has leaked. Forty party parrots. Chad starts a slow clap."],[5.2,10.8,"","The assembled Greeks, pushing a man toward a ship he hasn't said he'll board. Only Ines doesn't clap."]],
+  cues:[[.8,()=>SFX.claps(26)],[3.5,()=>SFX.claps(22)]]});
+
+// 4 Father on the phone (split screen)
+const lars4=track([[0,{x:300,y:560,s:.95,f:1,shF:-1.9,elF:-1.9,shB:.05,nk:-.05}],[5,{nk:.05}],[8,{nk:-.12,tor:.05}],[12,{}]],BASE);
+S.push({id:"phone",title:"Dad",dur:12,draw(t){
+  // left: kitchen
+  X.save();X.beginPath();X.rect(0,0,W/2-6,H);X.clip();backdrop("#5a4630","#2a2018");lamp(300,200,400,.35);
+  card(rrect(60,300,420,26,3),"#8a6a46",{shadow:1});card(()=>{X.ellipse(400,280,34,26,0,0,TAU)},"#9aa0a4",{corrugate:false,shadow:.8});
+  for(let i=0;i<3;i++){X.strokeStyle=`rgba(240,240,240,${.25})`;X.lineWidth=3;X.beginPath();const sx=410+i*8;X.moveTo(sx,250);X.bezierCurveTo(sx-10,220-((t*40+i*20)%40),sx+10,200,sx,170-((t*30)%30));X.stroke()}
+  drawPuppet(LARS,{...lars4(t),hold:()=>{card(rrect(-6,0,12,24,2),"#222",{corrugate:false,shadow:.2})}});X.restore();
+  // right: office stairwell
+  X.save();X.beginPath();X.rect(W/2+6,0,W/2,H);X.clip();backdrop("#2b2a33","#16131a");lamp(960,220,380,.2,"160,200,220");
+  drawPuppet(ODIE,{...BASE,x:960,y:560,s:.95,f:-1,shF:-2.1,elF:-1.7,nk:.08,tor:.04,hold:null});X.restore();
+  X.fillStyle="#0c0907";X.fillRect(W/2-6,0,12,H);vignette()},
+  caps:[[.8,3.6,"Lars","Your mother saw it on the LinkedIn. Team lead."],[3.8,7.2,"","A pause long enough to hear the kettle. You read him the way you read him your whole childhood: from what his hands did."],[7.4,11.8,"Lars","Well. Well, well. My boy, in charge."]],
+  cues:[[.2,()=>SFX.phone()]]});
+
+// 5 Olympus: the choice
+S.push({id:"olympus",title:"Scylla & Charybdis",dur:9,choiceAt:8.6,draw(t){backdrop("#2a2c36","#141216");
+  // table + clementines
+  card(rrect(320,470,640,26,4),"#5f4632",{shadow:1});for(let i=0;i<5;i++){card(()=>{X.arc(560+i*34,458,14,0,TAU)},"#e08a2e",{corrugate:false,shadow:.4})}
+  // monsters as flat cards either side
+  const sw=Math.sin(t*1.4);
+  X.save();X.translate(150,330);X.rotate(sw*.05);for(let h=0;h<6;h++){X.save();X.rotate(-1+h*.38+Math.sin(t*2+h)*.08);card(capsule(140,26,40),"#5e7a5a",{shadow:.7});X.translate(0,150);card(()=>{X.ellipse(0,0,26,18,0,0,TAU)},"#6e8a6a",{shadow:.4});X.fillStyle="#f2e6c8";X.fillRect(-3,8,6,10);X.restore()}X.restore();
+  label("SCYLLA",150,640,{size:20,color:"#cfe0c6",weight:700});
+  X.save();X.translate(1120,380);for(let r=0;r<5;r++){X.save();X.rotate(t*(1.2+r*.3)*(r%2?-1:1));card(()=>{X.ellipse(0,0,140-r*24,60-r*10,0,0,TAU)},`hsl(195,${30+r*6}%,${22+r*6}%)`,{shadow:.4,corrugate:true});X.restore()}X.restore();
+  label("CHARYBDIS",1120,640,{size:20,color:"#cfe6ee",weight:700});
+  drawPuppet(DANA,{...BASE,x:820,y:560,s:.9,f:-1,shF:-.5,elF:-1.3});
+  drawPuppet(ODIE,{...BASE,x:520,y:570,s:.9,f:1,nk:val([[0,0],[4,.12],[8,-.08]])(t)});
+  lamp(640,250,500,.25);vignette()},
+  caps:[[.4,4.4,"Dana","So! Ithaca or Troy? Kidding. Team lead or...?"],[4.6,8.6,"","No ship sails between them without losing something."]],
+  cues:[[.4,()=>SFX.note(110,2.5,.08,"sine")]]});
+
+// 6 Branch outcome
+const BR={accept:{t:"You say yes. Chad grips your shoulder: 'Let me know if you need help with the people stuff.'",tag:"TEAM LEAD"},
+  decline:{t:"You say no. Dana: 'Totally valid!' in the voice of someone updating a spreadsheet. Chad is already walking to her office.",tag:"LACKS AMBITION?"},
+  reneg:{t:"A craft role: no reports. Dana looks at HR. HR looks at the clementines. 'Fine. Senior Craft Lead. I'll have to explain the box.'",tag:"SENIOR CRAFT LEAD"},
+  stall:{t:"You plough the sprint board with salt. Dana drags the production database into your furrow. Your hand shoots out to save it. Sanity: revealed.",tag:"???"}};
+S.push({id:"branch",title:"The answer",dur:8,draw(t){office(t);const b=BR[CHOICE];
+  if(CHOICE==="stall"){card(rrect(560,330,420,140,4),"#e9e2d2",{shadow:.8,corrugate:false});for(let c=0;c<3;c++){label(["TODO","DOING","SALT"][c],620+c*140,350,{size:15,weight:700});for(let k=0;k<3;k++)card(rrect(580+c*140,368+k*32,90,24,2),c===2?"#f1f1f1":"#f2d27a",{shadow:.2,corrugate:false})}}
+  const p=CHOICE==="accept"?{shF:-.3,elF:-1.2}:CHOICE==="decline"?{tor:-.04,nk:-.08}:CHOICE==="reneg"?{shF:-1.5,elF:-.6}:{shF:-2.4,elF:.2,shB:-2.2,elB:.3,nk:Math.sin(t*6)*.15};
+  drawPuppet(ODIE,{...BASE,x:440,y:560,f:1,...p});
+  if(CHOICE==="accept")drawPuppet(CHAD,{...BASE,x:560,y:560,f:-1,shF:-1.4,elF:-.4});
+  const y=val([[0,-60],[1,90,"back"],[8,90]])(t);tag(b.tag,440,-10,y,Math.sin(t*2)*.07);
+  lamp(640,200,520,.2);vignette()},
+  capsFn:()=>[[.6,7.8,"",BR[CHOICE].t]],cues:[[.8,()=>SFX.click(.3)]]});
+
+// 7 Departure: the sea
+S.push({id:"sea",title:"The Voyage",dur:9,draw(t){backdrop("#40576a","#1d2a33");lamp(1000,140,240,.5,"255,230,170");
+  card(()=>{X.arc(1000,140,46,0,TAU)},"#f0d8a0",{corrugate:false,shadow:0,edge:"#d6b878"});
+  waves(t,450,"#24495a",12,1,.8);const sx=val([[0,200],[9,760,"lin"]])(t);
+  ship(sx,470,Math.sin(t*1.3)*.04);drawPuppet(ODIE,{...BASE,x:sx-40,y:465+Math.sin(t*1.3)*6,s:.6,f:1,nk:-.05,shF:.1});
+  waves(t,520,"#2f5e6a",14,2.2,1.1);waves(t,600,"#3b7280",10,4,1.4);vignette()},
+  caps:[[.8,8.6,"","Six weeks of sabbatical. Podcasts at double speed, old conference talks, a ferry café that becomes a ship that becomes a myth."]],
+  cues:[[.3,()=>SFX.slide(.08,2)],[1,()=>SFX.motif()]]});
+
+// 8 Inbox Sea (Sirens)
+S.push({id:"inbox",title:"The Inbox Sea",dur:15,draw(t){backdrop("#3f5560","#1a2328");
+  waves(t,470,"#2a4f5c",8,0,.6);
+  card(()=>{X.moveTo(780,480);X.quadraticCurveTo(900,330,1040,480);X.closePath()},"#6a6258",{shadow:1});
+  drawPuppet(LINOS,{...BASE,x:910,y:420,gy:0,s:.7,f:-1,hpF:-1.4,knF:1.5,hpB:-1.3,knB:1.4,shF:-1.2,elF:-.9,shB:-1.1,elB:-1,nk:Math.sin(t*1.5)*.06,
+    hold:()=>{}});
+  card(rrect(820,360,70,6,2),"#cfd3d6",{corrugate:false,shadow:.3});card(rrect(830,322,56,38,3),"#aab0b4",{corrugate:false,shadow:.3});
+  // envelopes fly like birds toward the ship
+  for(let i=0;i<14;i++){const u=((t*.18+i/14)%1);const x=lerp(880,180,u),y=360-Math.sin(u*Math.PI)*160+Math.sin(t*3+i)*10;
+    X.save();X.translate(x,y);X.rotate(Math.sin(t*4+i)*.3);card(rrect(-16,-11,32,22,2),"#efe7d6",{corrugate:false,shadow:.4,edge:"#a08c6a"});X.strokeStyle="#a08c6a";X.beginPath();X.moveTo(-16,-11);X.lineTo(0,2);X.lineTo(16,-11);X.stroke();X.restore()}
+  // musical notes
+  for(let i=0;i<4;i++){const u=(t*.3+i*.25)%1;label("♪",880-u*120,330-u*90,{size:26,color:`rgba(240,230,200,${1-u})`})}
+  ship(260,480,Math.sin(t)*.03);drawPuppet(ODIE,{...BASE,x:230,y:476,s:.6,f:1,shF:-2.6,elF:-1.4,shB:-2.6,elB:-1.4,nk:.12});
+  // unread counter
+  label(`${Math.floor(312+t*9)} unread`,260,250,{size:20,color:"#ffd2a8",weight:700});
+  waves(t,560,"#356673",12,3,1);vignette()},
+  caps:[[.8,5,"","Every unread message is singing his name. Quick sync? Can you weigh in? Looping you in."],[5.2,10.4,"Linos Torwald","“I read email, I write email, I do no coding at all any more.”"],[10.6,14.8,"","He never chose to manage. The project grew around him. Nobody offered; the mail just rose."]],
+  cues:[[5,()=>SFX.siren()]]});
+
+// 9 Bell Works Garden (Lotus-eaters)
+S.push({id:"bell",title:"Bell Works Garden",dur:16,draw(t){backdrop("#4a5a3a","#22281a");lamp(640,120,600,.35,"255,236,170");
+  // brick wall with ivy
+  for(let r=0;r<6;r++)for(let c=0;c<14;c++){card(rrect(c*96-(r%2)*48,40+r*42,90,36,2),`hsl(${12+(r*c)%6},38%,${30+(c%3)*3}%)`,{shadow:.2,corrugate:false,edge:"#4a2a1a",lw:1})}
+  for(let i=0;i<18;i++){const x=(i*73)%1280,y=40+(i*37)%240;X.fillStyle="#3f6b2e";X.beginPath();X.ellipse(x,y,14,9,i,0,TAU);X.fill()}
+  floor(470,"#566b35");
+  // maze + mouse
+  card(rrect(140,520,260,150,3),"#d8c79e",{shadow:.6,corrugate:false});X.strokeStyle="#5a4630";X.lineWidth=4;
+  [[160,540,160,650],[160,540,380,540],[380,540,380,650],[160,650,380,650],[220,540,220,610],[280,580,280,650],[330,540,330,610]].forEach(([a,b,c,d])=>{X.beginPath();X.moveTo(a,b);X.lineTo(c,d);X.stroke()});
+  const path=[[190,630],[190,560],[250,560],[250,630],[305,630],[305,560],[355,560],[355,630]];const run=(t%8)/8*(path.length-1);const i=Math.floor(run),u=run-i;const a=path[i],b=path[Math.min(i+1,path.length-1)];
+  const mx=lerp(a[0],b[0],u),my=lerp(a[1],b[1],u);card(()=>{X.ellipse(mx,my,12,8,Math.atan2(b[1]-a[1],b[0]-a[0]),0,TAU)},"#9a9fa4",{corrugate:false,shadow:.3});
+  // Tomson at terminal
+  card(rrect(950,400,140,90,4),"#2a2a2a",{shadow:.8});X.fillStyle="#7fd08a";for(let k=0;k<5;k++)X.fillRect(962,412+k*14,40+((k*29)%70),4);
+  drawPuppet(TOMS,{...BASE,x:900,y:640,s:.85,f:1,shF:-1.3,elF:-.6,shB:-1.2,elB:-.7,tor:.15,nk:.1});
+  // Shanning on unicycle, juggling, crossing
+  const sx=val([[0,-120],[16,1400,"lin"]])(t);const wh=t*6;
+  X.save();X.translate(sx,640);X.rotate(wh);card(()=>{X.arc(0,0,34,0,TAU)},"#2a2622",{corrugate:false,shadow:.6});X.strokeStyle="#c9a24a";X.lineWidth=2;for(let k=0;k<4;k++){X.beginPath();X.moveTo(0,0);X.lineTo(Math.cos(k*TAU/4)*30,Math.sin(k*TAU/4)*30);X.stroke()}brad(0,0);X.restore();
+  card(rrect(sx-4,560,8,80,2),"#777",{corrugate:false,shadow:.3});
+  const pedal=Math.sin(wh);drawPuppet(SHANN,{...BASE,x:sx,y:552,gy:0,s:.75,f:1,hpF:-.5+pedal*.4,knF:.9-pedal*.3,hpB:-.5-pedal*.4,knB:.9+pedal*.3,shF:-2.2,elF:-.6+Math.sin(t*7)*.3,shB:-2.2,elB:-.6-Math.sin(t*7)*.3,tor:Math.sin(t*2)*.05});
+  for(let k=0;k<3;k++){const ph=t*3.5+k*TAU/3;card(()=>{X.arc(sx+Math.cos(ph)*40,330-Math.abs(Math.sin(ph))*70,10,0,TAU)},["#d9663a","#e2c04a","#4f8fb0"][k],{corrugate:false,shadow:.3})}
+  vignette()},
+  caps:[[.8,5.4,"","Bell Works Garden. A unicycle, three balls, a mechanical mouse that learns its maze and runs it perfectly the second time."],[5.6,10.6,"Ken Tomson","Management? “just an umbrella, not really a focus of power.”"],[10.8,15.8,"","The fruit tastes like an afternoon that never ends. The danger is that you never leave."]],
+  cues:[[.6,()=>SFX.motif(true)]]});
+
+// 10 The Cyclops (calibration)
+const odie10=track([[0,{x:200,y:640,s:.9,f:1}],[3,{x:420}],[5.6,{x:440,nk:-.1}],[9,{x:440,tor:.6,hpF:-1.4,knF:1.6,hpB:-1.3,knB:1.7,shF:-1.5,shB:-1.5,y:640,gy:.5},"out"],[14,{x:820,tor:.6,y:640,gy:.5}],[15,{x:900,tor:0,y:640,gy:1,hpF:0,knF:0,hpB:0,knB:0,shF:.1,shB:-.1}],[18,{x:1060}]]);
+S.push({id:"cyclops",title:"The Cyclops",dur:18,draw(t){backdrop("#1c1d22","#0c0c0f");
+  // dashboard monster
+  card(rrect(560,90,520,330,18),"#2b2f36",{shadow:1});for(let i=0;i<6;i++){card(rrect(590+i*80,360,56,-(30+((i*41)%110)),2),"#4b7a9a",{corrugate:false,shadow:.2})}
+  const look=val([[0,0],[4,-.4],[7,.3],[10,-.2],[12,.25],[14,0],[18,0]])(t);
+  const ex=820+look*160,ey=200;card(()=>{X.arc(820,200,90,0,TAU)},"#efe8d8",{corrugate:false,shadow:.6});
+  X.fillStyle="#141414";X.beginPath();X.arc(ex*.4+820*.6,ey,42,0,TAU);X.fill();
+  for(let k=0;k<4;k++){X.fillStyle="#e2c04a";X.fillRect(ex*.4+820*.6-24+k*13,ey+20-(10+k*7),9,10+k*7)}
+  // search beam
+  X.save();X.globalCompositeOperation="lighter";X.fillStyle="rgba(255,240,190,.10)";X.beginPath();X.moveTo(820,200);X.lineTo(620+look*900-200,720);X.lineTo(620+look*900+200,720);X.closePath();X.fill();X.restore();
+  floor(620,"#2a2622");
+  // sheep-shaped KPIs
+  for(let i=0;i<5;i++){const x=300+i*160+Math.sin(t+i)*6;card(()=>{X.ellipse(x,600,62,36,0,0,TAU)},"#e7e1d2",{corrugate:false,shadow:.6});label(["NPS","OKR","DAU","P95","ROI"][i],x,600,{size:16,weight:700});card(rrect(x+50,580,26,22,6),"#2b2b2b",{corrugate:false,shadow:.2})}
+  drawPuppet(ODIE,odie10(t));
+  if(t>3.2&&t<6)label("WHAT IS YOUR NAME, AND WHAT IS YOUR IMPACT?",820,450,{size:24,color:"#ffe6a8",weight:700});
+  if(t>9.4&&t<13)label("NOBODY IS HURTING ME!",820,450,{size:28,color:"#ffe6a8",weight:700});
+  vignette(.7)},
+  caps:[[.6,3,"","The Calibration Cave. A single eye that sees only what can be counted."],[6,9,"Odie","My name is Nobody."],[13.2,17.8,"","Invisibility, it turns out, is also cover. And if Nobody did the work, maybe Nobody needs the role."]],
+  cues:[[3.2,()=>SFX.boom()],[9.4,()=>SFX.boom()]]});
+
+// 11 Underworld: Ajax
+const ajax11=track([[0,{x:860,y:600,s:1.25,f:-1,nk:.05,shF:-.2,elF:-.3}],[6.5,{}],[8,{f:1,nk:.15},"snap"],[16,{f:1,nk:.18}]]);
+S.push({id:"ajax",title:"Ajax will not speak",dur:16,draw(t){backdrop("#2a2b2e","#101012");floor(560,"#4a4b4f");
+  // shades with lanyards
+  for(let i=0;i<7;i++){X.save();X.globalAlpha=.35;drawPuppet(GREEK("#6a6d72","#7f8388","short"),{...BASE,x:80+i*170,y:520,s:.6,f:i%2?1:-1,nk:Math.sin(t*.7+i)*.05});X.restore()}
+  const a=ajax11(t);drawPuppet(AJAX,a);
+  // shield
+  X.save();X.translate(a.x+(a.f>0?60:-60),a.y-120);card(()=>{X.arc(0,0,92,0,TAU)},"#7a6a4a",{shadow:1});X.strokeStyle="#c9a24a";X.lineWidth=3;X.beginPath();X.arc(0,0,80,0,TAU);X.stroke();
+  X.save();X.font='700 12px "Courier Prime", monospace';X.fillStyle="#efe1c4";const txt="LET A MAN NOBLY LIVE OR NOBLY DIE · ";for(let k=0;k<txt.length;k++){X.save();X.rotate(k/txt.length*TAU);X.fillText(txt[k],-3,-84+18);X.restore()}X.restore();brad(0,0,7);X.restore();
+  // Odie with the offering
+  const pourA=val([[0,0],[2,0],[3.4,-.9],[6,-.9],[7,0]])(t);
+  drawPuppet(ODIE,{...BASE,x:380,y:600,s:.9,f:1,shF:-1.5,elF:-.2,wrF:pourA,nk:-.05,hold:()=>{card(rrect(-10,4,20,26,3),"#e9e2d2",{corrugate:false,shadow:.2});label("oat",0,18,{size:9})}});
+  if(t>3&&t<6){X.strokeStyle="rgba(230,220,200,.6)";X.lineWidth=3;X.beginPath();X.moveTo(470,470);X.quadraticCurveTo(490,520,480,560);X.stroke()}
+  vignette(.7)},
+  caps:[[.6,3.2,"","The Underworld looks like a conference hotel after the conference. You pour the offering: a lukewarm oat flat white."],[3.4,7.6,"","Ajax, the steadiest craftsman at Troy, lost the armour to the better talker. He will not look at you."],[8.2,12,"","He turns his back. He says nothing."],[12.2,15.8,"Odysseus, pitying him (Sophocles)","“We are dim shapes, no more, and weightless shadows.”"]],
+  cues:[[3,()=>SFX.pour()],[8,()=>SFX.slide(.15,.3)],[12.4,()=>SFX.note(146.8,3,.1,"sine")]]});
+
+// 12 Homecoming: the suitors and the bow
+const SUITOR={accept:[null,"You keep the chair. Some days it's the Inbox Sea. Some days you defend an hour of real work, and it feels like stringing the bow."],
+  decline:[CHAD,"Chad is running your old standup, saying 'love that' to things he doesn't love."],
+  reneg:[INES,"Ines has been answering the eleven o'clock questions. She knew why the retry loop existed."],
+  stall:[DOUG,"Dougie Pratt is interim lead. He has renamed the team 'Velocity Pantheon.'"]};
+S.push({id:"bow",title:"The bow of Ithaca",dur:16,draw(t){const ok=t>11;office(t,{banner:"CONGRATS ON THE NEXT CHAPTER",alarm:ok?0:clamp((t-3)/1,0,1)});
+  desk(760,440,{code:ok?1:.4,warn:ok?-1:2,glow:ok?1.2:.6,t});
+  const s=SUITOR[CHOICE];if(s[0])drawPuppet(s[0],{...BASE,x:1020,y:560,f:-1,shF:t<6?-1.6:-.2,elF:-.5,nk:t>7?-.1:0});
+  const ox=val([[0,-80],[3,180,"out"],[7,180],[8.5,560,"io"],[16,560]])(t);const pw=t>8.5?{shF:-1.25,elF:-.55,shB:-1.15,elB:-.6,tor:.12,nk:.1}:walk(t,.9);
+  drawPuppet(ODIE,{...BASE,x:ox,y:550,f:1,...(t>3&&t<7?{}:pw)});
+  thread(600,250,750,330,clamp((t-9)/1.5,0,1),t);
+  if(!ok&&t>3){label("BILLING DOWN",760,250,{size:24,color:"#ffb08a",weight:700})}
+  if(ok){label("✓ invoices flowing · Québec intact",760,250,{size:20,color:"#bfeec0",weight:700})}
+  lamp(640,200,520,.18);vignette()},
+  capsFn:()=>[[.6,3,"","He comes home the way Odysseus did: unannounced, slightly unrecognisable."],[3.2,7.2,"",SUITOR[CHOICE][1]],[7.4,10.8,"","At 4 p.m. the billing service goes down. The model writes a beautiful patch that deletes Québec. Everyone turns to the stranger at the door."],[11.2,15.8,"","He strings the bow. Nobody sees how."]],
+  cues:[[3,()=>SFX.note(220,.4,.1,"square",false)],[3.5,()=>SFX.note(220,.4,.1,"square",false)],[11,()=>SFX.motif()]]});
+
+// 13 THE ORCHARD (defining passage)
+const TREES=[{x:200,n:"Bramley",sub:"fell out of it at nine",c:"#7aa04a"},{x:390,n:"Discovery ×3",sub:"the year I was born",c:"#c94a3a"},{x:790,n:"The Committee",sub:"four kinds, one trunk",c:"#c9a24a"},{x:1080,n:"The pear",sub:"never fruits; he won't cut it down",c:"#a7b85a"}];
+const GRAFTS=[["VAT bug, Mar 3",-150,-180],["Québec refactor",-10,-240],["the retry loop",140,-175]];
+const lars13=track([
+  [0,{x:950,y:615,s:.95,f:-1,tor:.1,nk:.12,shF:-1.5,elF:-.7,shB:-1.4,elB:-.9,wrF:0,brow:1.5,mouth:0}],
+  [2,{wrF:.25}],[2.6,{wrF:-.1}],[3.4,{wrF:.2},"snap"],[4.6,{wrF:0}],[6,{wrF:.25}],[7,{wrF:0}],[8.5,{nk:.04}],
+  [12,{wrF:.2}],[13,{wrF:0}],
+  [16.5,{nk:0,tor:0,shF:-.2,elF:-.4,shB:-.1,elB:-.3},"io"],[19.5,{}],
+  [20.5,{shF:-1.45,elF:-.05,nk:-.04},"back"],[23.5,{}],[24.5,{shF:-.2,elF:-.4,nk:0}],
+  [44,{}],[45.5,{shF:-1.2,elF:-1.0}],[49,{shF:-1.25,elF:-1.05}],[51,{shF:-.3,elF:-.5,brow:.5}],[53,{brow:-1.2,mouth:3,nk:.06}],
+  [55.4,{}],[57.6,{x:662,shF:-1.45,elF:-.12,wrF:.3,nk:.1,tor:-.04,shB:-.2,elB:-.3},"io"],[58.3,{shF:-1.5,elF:-.18},"out"],[60.4,{mouth:5,brow:-1.6}],
+  [61.2,{shB:-2.75,elB:-.15},"io"],[62.2,{shB:-2.8,elB:-.1}],[62.5,{shB:-2.5,elB:-.3},"out"],[64,{shB:-.2,elB:-.3},"io"],[68,{}]]);
+const odie13=track([
+  [0,{x:-120,y:615,s:.95,f:1}],[4,{x:300},"out"],[4.6,{}],[16,{nk:-.05}],
+  [24.5,{shF:-2.1,elF:-.1,x:300},"back"],[27,{shF:-2.0,elF:-.1}],[27.6,{shF:-1.9,elF:-.05,nk:-.05}],[30,{shF:-1.85}],[30.6,{shF:-2.25,elF:-.25,nk:.05}],[33,{}],[33.6,{shF:-2.3,elF:-.3,f:1}],[35.5,{shF:-.2,elF:-.3}],
+  [37,{x:540},"io"],[38,{shF:-2.5,elF:-.2,nk:-.15,hd:"P"}],[44,{}],[44.6,{shF:-1.3,elF:-.9,nk:.05}],[46,{shF:-1.3,elF:-.9}],[47,{shF:-.15,elF:-.3}],
+  [52,{nk:.08}],[57.6,{nk:-.06,tor:-.03}],[58.4,{nk:-.12,tor:-.06},"out"],[59.2,{}],[60.2,{shF:-.75,elF:-1.25,nk:-.16,tor:-.08},"io"],[68,{}]]);
+S.push({id:"orchard",title:"Laertes's orchard",key:true,dur:68,draw(t){
+  const warm=clamp((t-50)/10,0,1);
+  backdrop(`hsl(${28+warm*8},${40+warm*15}%,${30+warm*10}%)`,"#1e1810");
+  lamp(1050,180,520,.28+warm*.25,"255,200,130");
+  floor(560,`hsl(80,${22+warm*8}%,${22+warm*6}%)`);
+  // trees
+  const nameK=[[25,0],[28,1],[31,2],[34,3]];
+  TREES.forEach((tr,i)=>{X.save();X.translate(tr.x,560);
+    card(()=>{X.moveTo(-14,0);X.lineTo(14,0);X.lineTo(9,-200);X.lineTo(-9,-200);X.closePath()},"#5a3d26",{shadow:1});
+    const crowns=i===2?[[-110,-220,"#c94a3a"],[0,-280,"#7aa04a"],[110,-220,"#e2c04a"],[0,-190,"#b0603a"]]:[[0,-250,tr.c]];
+    crowns.forEach(([cx,cy,cc],k)=>{card(()=>{X.ellipse(cx,cy+Math.sin(t*.8+k+i)*2,i===2?80:110,i===2?62:84,0,0,TAU)},"#3f5a2c",{shadow:.8});
+      for(let f=0;f<(i===3?0:6);f++){const a=f*1.1+k;card(()=>{X.arc(cx+Math.cos(a)*50,cy+Math.sin(a)*34,8,0,TAU)},cc,{corrugate:false,shadow:.2,lw:1})}});
+    if(i===2){[[-60,-150],[60,-150],[0,-200]].forEach(([gx,gy])=>{X.fillStyle="#d9c39a";X.fillRect(gx-8,gy-3,16,6)})}
+    X.restore();
+    const nk=nameK.find(n=>n[1]===i);if(nk&&t>nk[0]){const u=clamp((t-nk[0])/.6,0,1);tag(tr.n,tr.x,560-420*(i===2?.92:1)+ (i===2?-30:0),lerp(0,60,ease.back(u)),Math.sin(t*1.5+i)*.06,{size:15});
+      if(t>nk[0]+.5)label(tr.sub,tr.x,560-420+(i===2?-30:0)+128+(i%2)*22,{size:13,color:`rgba(250,236,210,${clamp((t-nk[0]-.5)/.6,0,1)*clamp((44-t)/2,0,1)})`})}});
+  // grafts of code on the committee tree
+  GRAFTS.forEach(([g,dx,dy],k)=>{const t0=38.4+k*1.6;if(t>t0){const u=clamp((t-t0)/.6,0,1);tag(g,790+dx,560+dy-110,lerp(0,50,ease.back(u)),Math.sin(t*1.7+k)*.07,{size:14,fill:"#f3e6c9"})}});
+  // the theory: light from Odie to the grafts
+  const op=odie13(t);const thA=clamp((t-38)/2,0,1)*clamp((60-t)/4,.35,1);
+  GRAFTS.forEach(([g,dx,dy],k)=>{if(t>38.4+k*1.6)thread(op.x+20,op.y-200*op.s,790+dx,560+dy-60,thA*.8,t+k)});
+  // puppets
+  const lp=lars13(t);
+  const knife=()=>{card(rrect(-2,-2,4,30,1),"#c8c8c0",{corrugate:false,shadow:.2})};
+  const drawL=()=>drawPuppet(LARS,{...lp,hold:()=>{if(t<44)knife();else if(t>46.2&&t<56.6){X.rotate(-1.4);calipers(0,22,0,.26,false)}},holdB:t>55?knife:null});
+  const drawO=()=>drawPuppet(ODIE,{...op,hold:t>40&&t<46.2?()=>{X.rotate(-1.4);calipers(0,22,0,.26,false)}:null});
+  if(t<57){drawL();drawO()}else{drawO();drawL()}
+  // title tag over Odie: hangs, then is cut and falls
+  if(t>9){const cutT=62.2;if(t>cutT&&t<cutT+.35){X.save();X.globalCompositeOperation="lighter";X.fillStyle="rgba(255,240,200,.8)";X.beginPath();X.arc(op.x,190,10*(1-(t-cutT)/.35),0,TAU);X.fill();X.restore()}const fall=t>cutT?Math.pow(t-cutT,2)*260:0;const sw=Math.sin(t*1.9)*.07+(t>cutT?(t-cutT)*1.2:0);
+    if(fall<900){X.save();X.globalAlpha=t>cutT?clamp(1-(t-cutT)/1.6,0,1):1;tag("TEAM LEAD?",op.x,-10,lerp(0,205,ease.back(clamp((t-9)/.8,0,1))),sw,{size:17,cut:fall});X.restore()}}
+  // insert: calipers close-up (46.2 - 51)
+  if(t>46.2&&t<51.4){const ia=clamp((t-46.2)/.4,0,1)*clamp((51.4-t)/.4,0,1);X.save();X.globalAlpha=ia;X.fillStyle="#120d08";X.fillRect(0,0,W,H);
+    lamp(640,360,600,.35);const gap=val([[46.2,26],[47.6,26],[49.4,0,"in"],[51.4,0]])(t);calipers(600,300,gap,2.2,true);
+    if(t>49.6)label("without a hair of light",640,640,{size:24,color:"#efe1c4"});X.restore()}
+  vignette(.6-warm*.15)},
+  caps:[[4.8,8.4,"","Ithaca: a semi-detached house with an orchard too big for the garden. His father is out there, grafting. He doesn't hear him come up the path."],
+    [8.8,11.6,"Lars","Oh. It's you."],[11.8,16,"Lars","So. Is it team lead now, or what is it? I never know what to tell people."],
+    [20.6,24.2,"Lars","Go on then. You used to know them all. Name them."],
+    [35.6,38.2,"","Then, because the trees are a practice they share, he names the other things."],
+    [40.2,44,"","He hands his father the calipers he was given at twelve."],
+    [51.6,55,"Lars","You do what I did. Not the lathe. The feeling for it. The knowing before you know."],
+    [58.6,62,"Lars","I'm proud of you, son. I always was. I just didn't know what for, until now."],
+    [63.4,67.8,"","A hand on the shoulder, not on the title."]],
+  cues:[[4.2,()=>SFX.slide(.06,1)],[9.6,()=>SFX.click(.2)],[25,()=>SFX.pluck(293.7,.12)],[28,()=>SFX.pluck(349.2,.12)],[31,()=>SFX.pluck(440,.12)],[34,()=>SFX.pluck(392,.12)],
+    [38.4,()=>SFX.pluck(587.3,.08)],[40,()=>SFX.pluck(587.3,.08)],[41.6,()=>SFX.pluck(587.3,.08)],[49.35,()=>SFX.click(.45)],[58.3,()=>SFX.click(.15)],[58.6,()=>SFX.motif(true)],[62.2,()=>SFX.snip()]]});
+function calipers(x,y,gap,s,big){X.save();X.translate(x,y);X.scale(s,s);const steel="#cfcac0",ed="#7e7a70";
+  if(gap>.2){X.save();X.globalCompositeOperation="lighter";const g=X.createLinearGradient(0,10,0,150);g.addColorStop(0,"rgba(255,244,210,.95)");g.addColorStop(1,"rgba(255,220,150,0)");X.fillStyle=g;X.fillRect(-140,10,gap,150);X.restore()}
+  card(rrect(-175,-16,380,32,3),steel,{corrugate:false,shadow:.6,edge:ed});
+  X.fillStyle="#4a4740";for(let k=0;k<36;k++){X.fillRect(-160+k*10,-16,1.4,k%5?7:12)}
+  card(()=>{X.moveTo(-175,16);X.lineTo(-140,16);X.lineTo(-140,118);X.lineTo(-152,140);X.lineTo(-175,140);X.closePath()},steel,{corrugate:false,shadow:.5,edge:ed});
+  X.save();X.translate(gap,0);card(rrect(-140,-24,70,48,4),"#bdb8ad",{corrugate:false,shadow:.5,edge:ed});
+  card(()=>{X.moveTo(-140,24);X.lineTo(-105,24);X.lineTo(-105,140);X.lineTo(-128,140);X.lineTo(-140,118);X.closePath()},steel,{corrugate:false,shadow:.5,edge:ed});
+  X.fillStyle="#4a4740";for(let k=0;k<10;k++)X.fillRect(-136+k*6,16,1,6);brad(-80,0,5);X.restore();
+  if(big){label("HENDRY WORKS",60,40,{size:13,color:"#3a3a36",weight:700})}X.restore()}
+
+// 14 End card
+S.push({id:"end",title:"Questions to carry home",dur:16,draw(t){backdrop("#2a2017","#140f0b");lamp(640,320,560,.3);
+  const qs=["Can saying no be its own kind of ambition?","What would a ladder look like that rewarded going deeper?","Can AI-mediated work count as real know-how?","Who pays when someone steps off the ladder?","What would it take for a parent to see a child's invisible work as work?"];
+  qs.forEach((q,i)=>{const t0=.6+i*2;if(t>t0){const y=val([[t0,-80],[t0+.8,150+i*92,"back"]])(t);card3(q,640,y,980,64,{size:22,rot:(i%2?.006:-.006)})}});vignette()},
+  cues:qs=>[],caps:[]});
+S[S.length-1].cues=[[.6,()=>SFX.click(.3)],[2.6,()=>SFX.click(.3)],[4.6,()=>SFX.click(.3)],[6.6,()=>SFX.click(.3)],[8.6,()=>SFX.click(.3)]];
+
+/* ---------------- player ---------------- */
+let starts=[],TOTAL=0;function layout(){starts=[];TOTAL=0;S.forEach(s=>{starts.push(TOTAL);TOTAL+=s.dur})}layout();
+let T=0,playing=false,last=0,waitingChoice=false,choiceTimer=null;
+const scrub=document.getElementById("scrub"),timeEl=document.getElementById("time"),playBtn=document.getElementById("play"),choiceEl=document.getElementById("choice");
+const chapEl=document.getElementById("chapters");
+S.forEach((s,i)=>{const b=document.createElement("button");b.className="chap"+(s.key?" key":"");b.textContent=`${i+1} · ${s.title}`;b.onclick=()=>{seek(starts[i]+.01);};chapEl.appendChild(b)});
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+function sceneAt(t){let i=0;while(i<S.length-1&&t>=starts[i+1])i++;return i}
+function render(){const i=sceneAt(T),s=S[i],lt=T-starts[i];X.setTransform(1,0,0,1,0,0);X.clearRect(0,0,W,H);seed=99;
+  X.save();s.draw(lt);X.restore();
+  const caps=s.capsFn?s.capsFn():s.caps||[];for(const [a,b,who,txt] of caps){if(lt>=a&&lt<=b){const al=clamp((lt-a)/.25,0,1)*clamp((b-lt)/.25,0,1);caption(who,txt,al)}}
+  // scene transition: card wipe
+  const into=lt,out=s.dur-lt;if(into<.35){X.fillStyle=`rgba(12,9,6,${1-into/.35})`;X.fillRect(0,0,W,H)}if(out<.35){X.fillStyle=`rgba(12,9,6,${1-out/.35})`;X.fillRect(0,0,W,H)}
+  X.globalAlpha=1;X.drawImage(grainC,0,0,W,H);
+  [...chapEl.children].forEach((c,k)=>c.setAttribute("aria-current",k===i));
+  scrub.value=Math.round(T/TOTAL*1000);timeEl.textContent=`${fmt(T)} / ${fmt(TOTAL)}`}
+function fireCues(t0,t1){S.forEach((s,i)=>{(s.cues||[]).forEach(([ct,fn])=>{const at=starts[i]+ct;if(at>t0&&at<=t1){try{fn()}catch(e){}}})})}
+function tick(now){if(!playing)return;const dt=Math.min(.1,(now-last)/1000);last=now;
+  const i=sceneAt(T),s=S[i];const lt=T-starts[i];
+  if(s.choiceAt&&lt<s.choiceAt&&lt+dt>=s.choiceAt&&!waitingChoice){T=starts[i]+s.choiceAt;render();askChoice();return}
+  const t0=T;T=Math.min(TOTAL,T+dt);fireCues(t0,T);render();
+  if(T>=TOTAL){pause();return}requestAnimationFrame(tick)}
+function play(){audioInit();if(AC&&AC.state==="suspended")AC.resume();if(T>=TOTAL)T=0;playing=true;playBtn.textContent="❚❚ Pause";last=performance.now();requestAnimationFrame(tick)}
+function pause(){playing=false;playBtn.textContent="▶ Play"}
+function seek(t){T=clamp(t,0,TOTAL);render()}
+playBtn.onclick=()=>{if(waitingChoice)return;playing?pause():play()};
+scrub.oninput=()=>{seek(scrub.value/1000*TOTAL)};
+function askChoice(){waitingChoice=true;playing=false;choiceEl.hidden=false;let left=12;const tEl=document.getElementById("choiceTimer");tEl.textContent=`The Greeks will decide for you in ${left} s.`;
+  choiceEl.querySelector("button").focus({preventScroll:true});
+  choiceTimer=setInterval(()=>{left--;tEl.textContent=`The Greeks will decide for you in ${left} s.`;if(left<=0)choose("stall")},1000)}
+function choose(c){clearInterval(choiceTimer);CHOICE=c;choiceEl.hidden=true;waitingChoice=false;SFX.click(.35);T+=.02;play()}
+choiceEl.querySelectorAll("button").forEach(b=>b.onclick=()=>choose(b.dataset.c));
+window.addEventListener("keydown",e=>{if(e.code==="Space"&&e.target===document.body){e.preventDefault();playBtn.click()}});
+// test hook for frame capture
+window.__film={S,starts,get total(){return TOTAL},seek:(t,c)=>{if(c)CHOICE=c;seek(t)}};
+function ready(){const h=location.hash.slice(1);const idx=S.findIndex(s=>s.id===h);seek(idx>=0?starts[idx]+.4:starts[13]+52);if(document.fonts)document.fonts.ready.then(render)}
+})();
+</script>
